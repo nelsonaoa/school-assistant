@@ -339,7 +339,7 @@ function renderTabs()
     a.className = 'nav-link' + (idx === activePeriodIndex ? ' active fw-bold' : '');
     a.style.color = isConfirmed ? '#198754' : '#dc3545';
     a.href = '#';
-    a.textContent = `第 ${periodDisplay} 节${statusLabel}`;
+    a.textContent = `第 ${periodDisplay} 節${statusLabel}`;
     a.onclick = function(e) 
     {
       e.preventDefault();
