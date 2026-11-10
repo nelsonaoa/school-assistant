@@ -82,7 +82,7 @@ nav.navbar
   }
 
   /* 2. 隱藏導覽列與非列印按鈕 */
-  header, nav, .navbar, .nav-tabs, .nav-pills, .no-print, .d-print-none, .btn, .alert, #saveBtn {
+  header, nav, .navbar, .nav-tabs, .nav-pills, .no-print, .d-print-none, .btn, .alert, #saveBtn, #g_id_signin_container {
     display: none !important;
   }
 
@@ -180,5 +180,5 @@ nav.navbar
   * {
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
-  }
+  }   
 }
