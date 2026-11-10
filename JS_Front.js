@@ -26,7 +26,6 @@ window.onload = function()
 function getCurrentSchoolKey() 
 {
   const path = window.location.pathname;
-  // 如果網址包含某個關鍵字，就判定是 B 校，否則預設為麗山 ('lishan')
   if (path.includes('lssh')) 
     return 'lssh';
   if (path.includes('cshs')) 
