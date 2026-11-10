@@ -154,7 +154,7 @@ function switchAccount()
     if(switchBtn) switchBtn.style.display = 'none';
     
     initGoogleLogin();
-    showMessage("請點擊右上方按鈕重新選擇 Google 帳號登入", true);
+    showMessage("請重新選擇 Google 帳號登入", true);
   }
 }
 
@@ -216,9 +216,11 @@ function fetchInitData(res)
             <div class="alert alert-light border small text-dark mb-4">
               ${detectedEmailText}
             </div>
+            <!--
             <button class="btn btn-outline-primary px-4 fw-bold" onclick="switchAccount()">
               🔄 切換其他帳號登入
             </button>
+            -->
           </div>
         </div>
       `;
