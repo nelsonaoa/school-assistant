@@ -327,7 +327,7 @@ function loadAttendanceRoster()
 
   const attendanceBlock = document.getElementById('attendanceBlock');
   if(attendanceBlock) attendanceBlock.style.display = 'none';
-  showMessage('⏳ 正在載入點名名單...', true);
+  showMessage('⏳ 正在載入點名單...', true);
 
   callGasApi('getAttendance', { targetDate: targetDate, courseCode: courseCode })
     .then(res => {
@@ -460,7 +460,7 @@ function renderStudentList()
       <hr class="my-2">
     </div>
     <div class="d-flex justify-content-between align-items-center bg-white p-2 rounded border mb-2 d-print-none">
-      <span class="fw-bold text-dark">📋 學生點名名單</span>
+      <span class="fw-bold text-dark">📋 課程點名單</span>
       <span class="badge bg-primary fs-6">應到人數：${expectedCount} 人</span>
     </div>
   `;
