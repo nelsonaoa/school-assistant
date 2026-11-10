@@ -38,6 +38,7 @@ function callGasApi(action, payload = {})
 {
   payload.action = action;
   payload.idToken = currentIdToken;
+  payload.schoolKey = getCurrentSchoolKey(); // 自動帶入學校
 
   return fetch(GAS_WEB_APP_URL, {
     method: 'POST',
