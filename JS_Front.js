@@ -34,6 +34,7 @@ function callGasApi(action, payload = {})
 }
 
 // 🎯 1. 初始化 Google Identity Services (GIS)
+// 🎯 1. 初始化 Google Identity Services (GIS)
 function initGoogleLogin() 
 {
   if(typeof google !== 'undefined' && google.accounts) 
@@ -41,26 +42,37 @@ function initGoogleLogin()
     google.accounts.id.initialize({
       client_id: GOOGLE_CLIENT_ID,
       callback: handleCredentialResponse,
-      auto_select: false
+      auto_select: false // 設為 false，才允許使用者在多個帳號（例如學校公務帳號與私人帳號）之間自主選擇
     });
 
+    // 渲染官方登入按鈕到您的容器中
     const container = document.getElementById("g_id_signin_container");
     if(container) 
     {
+      // 確保外層有 flex 靠右對齊 (方案 A)
+      container.className = "d-flex justify-content-end ms-auto";
+      
       google.accounts.id.renderButton(
         container,
-        { theme: "outline", size: "small", text: "signin_with", shape: "rectangular" }
+        { 
+          theme: "outline",     // 樣式：outline (白底黑框) 或 filled_blue (藍底白字)
+          size: "large",        // 大小：large
+          text: "signin_with",  // 按鈕文字
+          shape: "rectangular"  //形狀：矩形
+        }
       );
     }
 
-    // 若本地已有 Token 嘗試自動初始化，否則跳出 One Tap 提示
+    // 若本地已有 Token 嘗試自動初始化，否則彈出 Google 官方的原生帳號選擇框
     if(currentIdToken) 
     {
       verifyAndLogin(currentIdToken);
     } 
     else 
     {
-      google.accounts.id.prompt();
+      google.accounts.id.prompt((notification) => {
+        // 如果使用者關閉了彈出提示框，畫面上右側的官方登入按鈕依然可以點擊切換
+      });
     }
   }
 }
