@@ -3,9 +3,12 @@ let activePeriodIndex = 0;
 let studentStatuses = {};
 let currentUserRole = 'guest';
 
-// 🎯 請填入您的 GCP OAuth Client ID 與 GAS 部署 Web App 網址
+// 🎯 請填入 GCP Client ID 與部署後的 GAS Web App URL
 const GOOGLE_CLIENT_ID = "41397361871-ieh71tib6jg1a8g6tnpn2fdbh1ncdkt6.apps.googleusercontent.com";
-const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzgoGZu-h7h5_y5etCcgqZF9N8r2q_Vl1LR0--i76KviaIcm0QJqXKRagVFtFLei1U0/exec";
+const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwVMzyr0KHNHG3VvHsaTIFWRqZKpkPYDH3WPXwS9X8/exec";
+
+// 快取登入取得的 ID Token (供後續 API 操作帶入驗證)
+let currentIdToken = localStorage.getItem('google_id_token') || '';
 
 window.onload = function() 
 {
@@ -16,11 +19,12 @@ window.onload = function()
   initGoogleLogin();
 }
 
-// 🎯 核心封裝：統一使用 fetch 向 GAS 後端發送 API 請求
+// 🎯 核心 API 呼叫函式：自動帶入 ID Token 發送 POST 請求
 function callGasApi(action, payload = {}) 
 {
   payload.action = action;
-  
+  payload.idToken = currentIdToken;
+
   return fetch(GAS_WEB_APP_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain' },
@@ -29,7 +33,7 @@ function callGasApi(action, payload = {})
   .then(res => res.json());
 }
 
-// 🎯 1. Google 官方一鍵登入初始化
+// 🎯 1. 初始化 Google Identity Services (GIS)
 function initGoogleLogin() 
 {
   if(typeof google !== 'undefined' && google.accounts) 
@@ -49,17 +53,32 @@ function initGoogleLogin()
       );
     }
 
-    // 嘗試觸發頂部或右側 One Tap 快捷登入框
-    google.accounts.id.prompt();
+    // 若本地已有 Token 嘗試自動初始化，否則跳出 One Tap 提示
+    if(currentIdToken) 
+    {
+      verifyAndLogin(currentIdToken);
+    } 
+    else 
+    {
+      google.accounts.id.prompt();
+    }
   }
 }
 
-// 🎯 2. 接收登入成功的 ID Token 並送到 GAS 後端驗證 Email
+// 🎯 2. Google 登入完成回傳憑證處理
 function handleCredentialResponse(response) 
 {
+  currentIdToken = response.credential;
+  localStorage.setItem('google_id_token', currentIdToken);
+  verifyAndLogin(currentIdToken);
+}
+
+// 🎯 3. 傳送 ID Token 向 GAS 後端驗證並獲取初始化資料
+function verifyAndLogin(idToken) 
+{
   showMessage("身分驗證中...", true);
-  
-  callGasApi('verifyUser', { idToken: response.credential })
+
+  callGasApi('verifyUser')
     .then(res => {
       if(res.success) 
       {
@@ -77,7 +96,14 @@ function handleCredentialResponse(response)
       } 
       else 
       {
-        showMessage("登入驗證失敗：" + (res.message || res.error), false);
+        // Token 可能過期或權限不符
+        localStorage.removeItem('google_id_token');
+        currentIdToken = '';
+        const container = document.getElementById("g_id_signin_container");
+        if(container) container.style.display = 'inline-block';
+        
+        showMessage("驗證失敗：" + (res.message || '請重新登入'), false);
+        fetchInitData(res);
       }
     })
     .catch(err => {
@@ -87,12 +113,19 @@ function handleCredentialResponse(response)
 
 function switchAccount() 
 {
-  // 清除目前頁面狀態並重新提示選擇 Google 帳號
+  localStorage.removeItem('google_id_token');
+  currentIdToken = '';
+  
   if(typeof google !== 'undefined' && google.accounts) 
   {
     google.accounts.id.disableAutoSelect();
+    const container = document.getElementById("g_id_signin_container");
+    if(container) container.style.display = 'inline-block';
+    const switchBtn = document.getElementById("switchBtn");
+    if(switchBtn) switchBtn.style.display = 'none';
+    
     initGoogleLogin();
-    showMessage("請從 Google 彈窗中點選欲切換的帳號", true);
+    showMessage("請點擊右上方按鈕重新選擇 Google 帳號登入", true);
   }
 }
 
@@ -113,25 +146,24 @@ function switchToFrontPage()
   document.getElementById('frontBtn').style.display = 'none';
 }
 
-// 🎯 3. 根據登入資料初始化頁面與權限
-function fetchInitData(initRes) 
+function fetchInitData(res) 
 {
-  if(!initRes || !initRes.userInfo) return;
+  if(!res || !res.userInfo) return;
 
-  currentUserRole = initRes.userInfo.role ? initRes.userInfo.role.toLowerCase() : 'guest';
-  const userEmail = initRes.userInfo.email || '';
+  currentUserRole = res.userInfo.role ? res.userInfo.role.toLowerCase() : 'guest';
+  const userEmail = res.userInfo.email || '';
   
-  document.getElementById('userNameSpan').textContent = initRes.userInfo.name || '使用者';
+  document.getElementById('userNameSpan').textContent = res.userInfo.name || '使用者';
   document.getElementById('roleBadge').textContent = currentUserRole;
 
-  if(currentUserRole === 'guest' || initRes.success === false) 
+  if(currentUserRole === 'guest' || res.success === false) 
   {
     const frontView = document.getElementById('frontView');
     if(frontView) 
     {
       const detectedEmailText = userEmail 
         ? `目前登入的帳號為：<strong>${userEmail}</strong>（未在教師授權名單中）`
-        : `系統無法取得您的 Google Email，請點擊右上方完成 Google 登入。`;
+        : `系統無法辨識您的 Google 帳號，請確認是否點擊登入按鈕。`;
 
       frontView.innerHTML = `
         <div class="card shadow-sm text-center p-5 mt-4 border-danger">
@@ -176,13 +208,13 @@ function fetchInitData(initRes)
   if(select) 
   {
     select.innerHTML = '';
-    if(!initRes.courses || initRes.courses.length === 0) 
+    if(!res.courses || res.courses.length === 0) 
     {
       select.innerHTML = '<option value="">(無您的授課課程)</option>';
     } 
     else 
     {
-      initRes.courses.forEach(c => {
+      res.courses.forEach(c => {
         const opt = document.createElement('option');
         opt.value = c.code;
         opt.textContent = `${c.code} ${c.name} (${c.teacher || '未指派'})`;
@@ -240,7 +272,6 @@ function updatePermissionUI()
   }
 }
 
-// 🎯 4. 透過 fetch 讀取點名名單
 function loadAttendanceRoster() 
 {
   const targetDate = document.getElementById('attDate').value;
@@ -442,7 +473,6 @@ function setStatus(key, status)
   renderStudentList();
 }
 
-// 🎯 5. 透過 fetch 儲存點名紀錄
 function submitAttendance() 
 {
   const targetDate = document.getElementById('attDate').value;
