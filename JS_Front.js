@@ -25,13 +25,14 @@ window.onload = function()
 // 🎯 透過網址或環境自動判斷目前是哪一間學校
 function getCurrentSchoolKey() 
 {
-  const host = window.location.hostname;
+  const path = window.location.pathname;
   // 如果網址包含某個關鍵字，就判定是 B 校，否則預設為麗山 ('lishan')
-  if (host.includes('lssh')) 
+  if (path.includes('lssh')) 
     return 'lssh';
-  if (host.includes('cshs')) 
+  if (path.includes('cshs')) 
     return 'cshs';
 }
+
 
 // 🎯 核心 API 呼叫函式：自動帶入 ID Token 發送 POST 請求
 function callGasApi(action, payload = {}) 
