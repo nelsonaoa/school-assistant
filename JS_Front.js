@@ -5,7 +5,7 @@ let currentUserRole = 'guest';
 
 // 🎯 請填入 GCP Client ID 與部署後的 GAS Web App URL
 const GOOGLE_CLIENT_ID = "41397361871-ieh71tib6jg1a8g6tnpn2fdbh1ncdkt6.apps.googleusercontent.com";
-const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwVMzyr0KHNHG3VvHsaTIFWRqZKpkPYDH3WPXwS9X8/exec";
+const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzgoGZu-h7h5_y5etCcgqZF9N8r2q_Vl1LR0--i76KviaIcm0QJqXKRagVFtFLei1U0/exec";
 
 // 快取登入取得的 ID Token (供後續 API 操作帶入驗證)
 let currentIdToken = localStorage.getItem('google_id_token') || '';
