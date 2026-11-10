@@ -1,0 +1,184 @@
+/* -------------------------------------------------------------
+   1. 核心版面與外觀設定
+------------------------------------------------------------- */
+.app-container 
+{
+  max-width: 750px;
+  margin: 0 auto;
+}
+
+body 
+{ 
+  background-color: #f8f9fa; 
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
+}
+
+.card 
+{ 
+  border-radius: 10px; 
+  box-shadow: 0 4px 6px rgba(0,0,0,0.1); 
+  margin-bottom: 15px; 
+}
+
+.status-btn-group .btn 
+{ 
+  min-width: 55px; 
+  font-size: 0.85rem; 
+  padding: 6px 4px; 
+}
+
+.student-row 
+{ 
+  align-items: center; 
+  padding: 10px 0; 
+  border-bottom: 1px solid #e9ecef; 
+}
+
+.student-row:last-child 
+{ 
+  border-bottom: none; 
+}
+
+#msgAlert 
+{ 
+  display: none; 
+  position: fixed; 
+  top: 20px; 
+  right: 20px; 
+  z-index: 9999; 
+  min-width: 280px; 
+}
+
+nav.navbar 
+{
+  max-width: 750px !important;
+  margin: 20px auto !important;
+  border-radius: 10px !important;
+  border: 1px solid rgba(0,0,0,0.1) !important;
+  padding-left: 10px !important;
+  padding-right: 10px !important;
+}
+
+/* -------------------------------------------------------------
+    🖨️ 友善列印專用 CSS (全白底 + 統一黑色一般字體)
+------------------------------------------------------------- */
+@media print 
+{
+  /* 1. 頁面邊距微調縮小 */
+  @page {
+    size: A4 portrait;
+    margin: 0.8cm 1cm;
+  }
+
+  /* 🎯 覆蓋全域與外層底色 (包含 Bootstrap 的 .bg-light) */
+  html, body, .bg-light {
+    background: #ffffff !important;
+    background-color: #ffffff !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    font-size: 12px !important;
+    line-height: 1.2 !important;
+    color: #000000 !important;
+  }
+
+  /* 2. 隱藏導覽列與非列印按鈕 */
+  header, nav, .navbar, .nav-tabs, .nav-pills, .no-print, .d-print-none, .btn, .alert, #saveBtn {
+    display: none !important;
+  }
+
+  /* 3. 外框與卡片容器壓縮 🎯 強制背景為純白 */
+  .container, .container-fluid, .app-container, .card, .card-body, .admin-sub-tab {
+    width: 100% !important;
+    max-width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
+    background: #ffffff !important;
+    background-color: #ffffff !important;
+  }
+
+  .card-header {
+    background: transparent !important;
+    padding: 4px 0 !important;
+    border-bottom: 2px solid #000000 !important;
+  }
+
+  /* 4. 🎯 表格與內容強制純白底色 + 文字全黑 + 內容一般字體 */
+  .table, 
+  .table-responsive,
+  .table-striped > tbody > tr:nth-of-type(odd) > *,
+  .table-danger,
+  .table-danger > th,
+  .table-danger > td,
+  thead.table-danger,
+  thead.table-danger tr,
+  thead.table-danger th,
+  tr, td, div, span {
+    background: #ffffff !important;
+    background-color: #ffffff !important;
+    color: #000000 !important;
+    font-weight: normal !important; /* 資料內容保持一般字體 */
+    box-shadow: none !important;
+  }
+
+  /* 🎯 強制欄位標題 (表頭 th) 為黑色粗體 */
+  .table th,
+  .table thead th,
+  thead th {
+    background: #ffffff !important;
+    background-color: #ffffff !important;
+    color: #000000 !important;
+    font-weight: bold !important; /* 👈 表頭強制粗體 */
+    border: 1px solid #dee2e6 !important;
+  }
+
+  .table {
+    margin-bottom: 0 !important;
+    font-size: 11px !important;
+    width: 100% !important;
+    border: 1px solid #dee2e6 !important;
+  }
+
+  .table th, 
+  .table td {
+    padding: 4px 6px !important;
+    vertical-align: middle !important;
+    line-height: 1.2 !important;
+    border: 1px solid #dee2e6 !important;
+  }
+
+  .table-responsive {
+    overflow: visible !important;
+    background: #ffffff !important;
+  }
+
+  /* 5. 標籤 (Badge) 邊框與文字全黑化 */
+  .badge {
+    padding: 2px 5px !important;
+    font-size: 10px !important;
+    border: 1px solid #000000 !important;
+    color: #000000 !important;
+    background: #ffffff !important;
+  }
+  .text-primary,
+  .text-danger,
+  .text-warning-emphasis,
+  .text-muted {
+    color: #000000 !important;
+  }
+
+  /* 6. 防止跨頁斷裂混亂 */
+  tr {
+    page-break-inside: avoid !important;
+  }
+
+  thead {
+    display: table-header-group !important;
+  }
+
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+}
