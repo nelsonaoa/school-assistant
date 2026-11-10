@@ -13,8 +13,11 @@ let currentIdToken = localStorage.getItem('google_id_token') || '';
 window.onload = function() 
 {
   const today = new Date().toISOString().split('T')[0];
-  document.getElementById('attDate').value = today;
-  document.getElementById('adminQueryDate').value = today;
+  const attDateElem = document.getElementById('attDate');
+  const adminQueryDateElem = document.getElementById('adminQueryDate');
+  
+  if(attDateElem) attDateElem.value = today;
+  if(adminQueryDateElem) adminQueryDateElem.value = today;
   
   initGoogleLogin();
 }
@@ -34,7 +37,6 @@ function callGasApi(action, payload = {})
 }
 
 // 🎯 1. 初始化 Google Identity Services (GIS)
-// 🎯 1. 初始化 Google Identity Services (GIS)
 function initGoogleLogin() 
 {
   if(typeof google !== 'undefined' && google.accounts) 
@@ -42,23 +44,22 @@ function initGoogleLogin()
     google.accounts.id.initialize({
       client_id: GOOGLE_CLIENT_ID,
       callback: handleCredentialResponse,
-      auto_select: false // 設為 false，才允許使用者在多個帳號（例如學校公務帳號與私人帳號）之間自主選擇
+      auto_select: false // 設為 false，才允許使用者在多個帳號之間自主選擇
     });
 
     // 渲染官方登入按鈕到您的容器中
     const container = document.getElementById("g_id_signin_container");
     if(container) 
     {
-      // 確保外層有 flex 靠右對齊 (方案 A)
       container.className = "d-flex justify-content-end ms-auto";
       
       google.accounts.id.renderButton(
         container,
         { 
-          theme: "outline",     // 樣式：outline (白底黑框) 或 filled_blue (藍底白字)
+          theme: "outline",     // 樣式：outline (白底黑框)
           size: "large",        // 大小：large
           text: "signin_with",  // 按鈕文字
-          shape: "rectangular"  //形狀：矩形
+          shape: "rectangular"  // 形狀：矩形
         }
       );
     }
@@ -71,7 +72,7 @@ function initGoogleLogin()
     else 
     {
       google.accounts.id.prompt((notification) => {
-        // 如果使用者關閉了彈出提示框，畫面上右側的官方登入按鈕依然可以點擊切換
+        // 如果使用者關閉了彈出提示框，畫面上右側的官方登入按鈕依然可以點擊
       });
     }
   }
@@ -95,8 +96,10 @@ function verifyAndLogin(idToken)
     .then(res => {
       if(res.success) 
       {
-        document.getElementById('userNameSpan').textContent = res.name || res.email;
-        document.getElementById('roleBadge').textContent = res.role || 'user';
+        const userNameSpan = document.getElementById('userNameSpan');
+        const roleBadge = document.getElementById('roleBadge');
+        if(userNameSpan) userNameSpan.textContent = res.name || res.email;
+        if(roleBadge) roleBadge.textContent = res.role || 'user';
         
         const container = document.getElementById("g_id_signin_container");
         if(container) container.style.display = 'none';
@@ -145,19 +148,29 @@ function switchAccount()
 
 function switchToAdminPage() 
 {
-  document.getElementById('frontView').style.display = 'none';
-  document.getElementById('adminView').style.display = 'block';
-  document.getElementById('adminBtn').style.display = 'none';
-  document.getElementById('frontBtn').style.display = 'inline-block';
+  const frontView = document.getElementById('frontView');
+  const adminView = document.getElementById('adminView');
+  const adminBtn = document.getElementById('adminBtn');
+  const frontBtn = document.getElementById('frontBtn');
+
+  if(frontView) frontView.style.display = 'none';
+  if(adminView) adminView.style.display = 'block';
+  if(adminBtn) adminBtn.style.display = 'none';
+  if(frontBtn) frontBtn.style.display = 'inline-block';
   if(typeof loadAdminSummary === 'function') loadAdminSummary();
 }
 
 function switchToFrontPage() 
 {
-  document.getElementById('adminView').style.display = 'none';
-  document.getElementById('frontView').style.display = 'block';
-  document.getElementById('adminBtn').style.display = 'inline-block';
-  document.getElementById('frontBtn').style.display = 'none';
+  const frontView = document.getElementById('frontView');
+  const adminView = document.getElementById('adminView');
+  const adminBtn = document.getElementById('adminBtn');
+  const frontBtn = document.getElementById('frontBtn');
+
+  if(adminView) adminView.style.display = 'none';
+  if(frontView) frontView.style.display = 'block';
+  if(adminBtn) adminBtn.style.display = 'inline-block';
+  if(frontBtn) frontBtn.style.display = 'none';
 }
 
 function fetchInitData(res) 
@@ -167,8 +180,10 @@ function fetchInitData(res)
   currentUserRole = res.userInfo.role ? res.userInfo.role.toLowerCase() : 'guest';
   const userEmail = res.userInfo.email || '';
   
-  document.getElementById('userNameSpan').textContent = res.userInfo.name || '使用者';
-  document.getElementById('roleBadge').textContent = currentUserRole;
+  const userNameSpan = document.getElementById('userNameSpan');
+  const roleBadge = document.getElementById('roleBadge');
+  if(userNameSpan) userNameSpan.textContent = res.userInfo.name || '使用者';
+  if(roleBadge) roleBadge.textContent = currentUserRole;
 
   if(currentUserRole === 'guest' || res.success === false) 
   {
@@ -201,13 +216,17 @@ function fetchInitData(res)
     return;
   }
 
-  if(currentUserRole === 'admin' || currentUserRole === 'supervisor') 
+  const adminBtn = document.getElementById('adminBtn');
+  if(adminBtn) 
   {
-    document.getElementById('adminBtn').style.display = 'inline-block';
-  } 
-  else 
-  {
-    document.getElementById('adminBtn').style.display = 'none';
+    if(currentUserRole === 'admin' || currentUserRole === 'supervisor') 
+    {
+      adminBtn.style.display = 'inline-block';
+    } 
+    else 
+    {
+      adminBtn.style.display = 'none';
+    }
   }
 
   const importTabLi = document.getElementById('importTabLi');
@@ -257,7 +276,10 @@ function isDateExpired(targetDateStr)
 
 function updatePermissionUI() 
 {
-  const targetDate = document.getElementById('attDate').value;
+  const attDateElem = document.getElementById('attDate');
+  if(!attDateElem) return;
+
+  const targetDate = attDateElem.value;
   const isExpired = isDateExpired(targetDate);
   
   const saveBtn = document.getElementById('saveBtn');
@@ -288,8 +310,12 @@ function updatePermissionUI()
 
 function loadAttendanceRoster() 
 {
-  const targetDate = document.getElementById('attDate').value;
-  const courseCode = document.getElementById('courseSelect').value;
+  const attDateElem = document.getElementById('attDate');
+  const courseSelectElem = document.getElementById('courseSelect');
+  if(!attDateElem || !courseSelectElem) return;
+
+  const targetDate = attDateElem.value;
+  const courseCode = courseSelectElem.value;
 
   if(!targetDate || !courseCode) 
   {
@@ -299,7 +325,8 @@ function loadAttendanceRoster()
 
   updatePermissionUI();
 
-  document.getElementById('attendanceBlock').style.display = 'none';
+  const attendanceBlock = document.getElementById('attendanceBlock');
+  if(attendanceBlock) attendanceBlock.style.display = 'none';
   showMessage('⏳ 正在載入點名名單...', true);
 
   callGasApi('getAttendance', { targetDate: targetDate, courseCode: courseCode })
@@ -326,7 +353,7 @@ function loadAttendanceRoster()
 
       renderTabs();
       renderStudentList();
-      document.getElementById('attendanceBlock').style.display = 'block';
+      if(attendanceBlock) attendanceBlock.style.display = 'block';
     })
     .catch(err => {
       showMessage('讀取名單失敗: ' + err.message, false);
@@ -336,6 +363,7 @@ function loadAttendanceRoster()
 function renderTabs() 
 {
   const tabsContainer = document.getElementById('periodTabs');
+  if(!tabsContainer) return;
   tabsContainer.innerHTML = '';
 
   currentData.periods.forEach((p, idx) => {
@@ -370,6 +398,8 @@ function renderTabs()
 function updateConfirmBadge() 
 {
   const badge = document.getElementById('confirmBadge');
+  if(!badge) return;
+
   if(!currentData.periods || !currentData.periods[activePeriodIndex]) 
   {
     badge.style.setProperty('display', 'none', 'important');
@@ -383,8 +413,10 @@ function updateConfirmBadge()
 
   if(confirmInfo && confirmInfo.teacher) 
   {
-    document.getElementById('confirmTeacher').textContent = confirmInfo.teacher;
-    document.getElementById('confirmTime').textContent = confirmInfo.time;
+    const confirmTeacher = document.getElementById('confirmTeacher');
+    const confirmTime = document.getElementById('confirmTime');
+    if(confirmTeacher) confirmTeacher.textContent = confirmInfo.teacher;
+    if(confirmTime) confirmTime.textContent = confirmInfo.time;
     badge.style.setProperty('display', 'flex', 'important');
   } 
   else 
@@ -396,6 +428,7 @@ function updateConfirmBadge()
 function renderStudentList() 
 {
   const container = document.getElementById('studentListContainer');
+  if(!container) return;
   container.innerHTML = '';
 
   if(!currentData.periods[activePeriodIndex]) return;
@@ -409,17 +442,27 @@ function renderStudentList()
     return;
   }
 
+  // 🎯 計算應到人數（自動排除跨課到其他班級的學生）
+  const expectedStudents = students.filter(s => s.isCurrentCourse !== false);
+  const expectedCount = expectedStudents.length;
+
   const targetDate = document.getElementById('attDate').value;
   const courseSelectElem = document.getElementById('courseSelect');
   const courseNameText = courseSelectElem.options[courseSelectElem.selectedIndex] ? courseSelectElem.options[courseSelectElem.selectedIndex].text : '';
   const currentPeriodObj = currentData.periods[activePeriodIndex];
 
   const printHeaderDiv = document.createElement('div');
-  printHeaderDiv.className = 'd-none d-print-block mb-3 text-center';
+  printHeaderDiv.className = 'mb-3';
   printHeaderDiv.innerHTML = `
-    <h4 class="fw-bold mb-1">麗山高中自主學習點名單</h4>
-    <p class="text-secondary mb-0">課程：${courseNameText} </br> 上課日期：${targetDate}  第 ${currentPeriodObj.period} 節</p>
-    <hr class="my-2">
+    <div class="d-none d-print-block text-center mb-2">
+      <h4 class="fw-bold mb-1">麗山高中自主學習點名單</h4>
+      <p class="text-secondary mb-0">課程：${courseNameText} <br> 上課日期：${targetDate}  第 ${currentPeriodObj.period} 節</p>
+      <hr class="my-2">
+    </div>
+    <div class="d-flex justify-content-between align-items-center bg-white p-2 rounded border mb-2 d-print-none">
+      <span class="fw-bold text-dark">📋 學生點名名單</span>
+      <span class="badge bg-primary fs-6">應到人數：${expectedCount} 人</span>
+    </div>
   `;
   container.appendChild(printHeaderDiv);
 
@@ -481,7 +524,8 @@ function renderStudentList()
 
 function setStatus(key, status) 
 {
-  const targetDate = document.getElementById('attDate').value;
+  const attDateElem = document.getElementById('attDate');
+  const targetDate = attDateElem ? attDateElem.value : '';
   if(['supervisor', 'guest'].includes(currentUserRole) || isDateExpired(targetDate)) return;
   studentStatuses[key] = status;
   renderStudentList();
@@ -489,7 +533,8 @@ function setStatus(key, status)
 
 function submitAttendance() 
 {
-  const targetDate = document.getElementById('attDate').value;
+  const attDateElem = document.getElementById('attDate');
+  const targetDate = attDateElem ? attDateElem.value : '';
   if(['supervisor', 'guest'].includes(currentUserRole) || isDateExpired(targetDate)) 
   {
     showMessage('❌ 權限不足或已超過期限，無法儲存！', false);
@@ -503,7 +548,8 @@ function submitAttendance()
   }
 
   const currentPeriodObj = currentData.periods[activePeriodIndex];
-  const courseCode = document.getElementById('courseSelect').value;
+  const courseCodeElem = document.getElementById('courseSelect');
+  const courseCode = courseCodeElem ? courseCodeElem.value : '';
 
   const periodInfo = {
     scheduleId: currentPeriodObj.scheduleId,
@@ -547,6 +593,8 @@ function showMessage(msg, isSuccess)
 {
   const alertBox = document.getElementById('msgAlert');
   const content = document.getElementById('msgContent');
+  if(!alertBox || !content) return;
+  
   content.textContent = msg;
   alertBox.className = 'alert alert-dismissible fade show ' + (isSuccess ? 'alert-success' : 'alert-danger');
   alertBox.style.display = 'block';
