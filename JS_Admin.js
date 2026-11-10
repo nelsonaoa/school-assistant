@@ -127,7 +127,7 @@ function loadAdminSummary()
         });
       }
 
-      // 4. 渲染全校缺席總表 (一人一列高度對齊樸素版)
+      // 4. 渲染全校缺席總表 (修復人名與學生資料對應 Key 值)
       const aBody = document.getElementById('adminAbsentTableBody');
       aBody.innerHTML = '';
       
@@ -140,16 +140,27 @@ function loadAdminSummary()
         const studentMap = {};
 
         res.absentList.forEach(a => {
-          const key = a.studentId || `${a.className}_${a.seatNum}_${a.studentName}`;
+          // 🎯【修正重點】：優先以 studentId 結合姓名、班座做唯一識別
+          const key = (a.studentId && a.studentId !== '-') 
+            ? a.studentId 
+            : `${a.className}_${a.seatNum}_${a.studentName}`;
 
           if(!studentMap[key]) 
           {
             studentMap[key] = {
-              className: a.className || '-',
-              seatNum: a.seatNum || '-',
-              studentName: a.studentName || '未知學生',
+              studentId: a.studentId || '',
+              className: (a.className && a.className !== '-') ? a.className : '',
+              seatNum: (a.seatNum && a.seatNum !== '-') ? a.seatNum : '',
+              studentName: (a.studentName && a.studentName !== '未知學生') ? a.studentName : '',
               records: []
             };
+          }
+          else
+          {
+            // 若後續資料包含更完整的學生姓名與班座，自動補充覆蓋
+            if(!studentMap[key].className && a.className && a.className !== '-') studentMap[key].className = a.className;
+            if(!studentMap[key].seatNum && a.seatNum && a.seatNum !== '-') studentMap[key].seatNum = a.seatNum;
+            if((!studentMap[key].studentName || studentMap[key].studentName === '未知學生') && a.studentName && a.studentName !== '未知學生') studentMap[key].studentName = a.studentName;
           }
 
           studentMap[key].records.push({
@@ -162,7 +173,7 @@ function loadAdminSummary()
 
         const groupedList = Object.values(studentMap);
         groupedList.sort((x, y) => {
-          const classCompare = String(x.className).localeCompare(String(y.className), 'zh-Hant', { numeric: true });
+          const classCompare = String(x.className || '-').localeCompare(String(y.className || '-'), 'zh-Hant', { numeric: true });
           if(classCompare !== 0) return classCompare;
 
           const seatX = parseInt(x.seatNum, 10) || 0;
@@ -196,11 +207,15 @@ function loadAdminSummary()
           periodsHtml += '</div>';
           coursesHtml += '</div>';
 
+          const displayName = student.studentName || (student.studentId ? `學號 ${student.studentId}` : '未知學生');
+          const displayClass = student.className || '-';
+          const displaySeat = student.seatNum || '-';
+
           const tr = document.createElement('tr');
           tr.innerHTML = `
-            <td class="align-middle text-center">${student.className}</td>
-            <td class="align-middle text-center">${student.seatNum}</td>
-            <td class="align-middle text-center">${student.studentName}</td>
+            <td class="align-middle text-center">${displayClass}</td>
+            <td class="align-middle text-center">${displaySeat}</td>
+            <td class="align-middle text-center">${displayName}</td>
             <td class="p-0 align-middle">${periodsHtml}</td>
             <td class="p-0 align-middle">${coursesHtml}</td>
           `;
