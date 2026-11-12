@@ -50,14 +50,14 @@ function getCurrentSchoolKey()
 // 定義各個學校對應的名稱與圖示
 const SCHOOL_CONFIGS = 
 {
-  'lssh': {name: '🏫 麗山高中自主學習點名系統',  icon: 'lssh.png'},
-  'cshs': {name: '🏫 清水高中選修課程點名系統',  icon: 'cshs.png'}
+  'lssh': {name: '麗山高中自主學習點名系統',  icon: 'lssh.png'},
+  'cshs': {name: '清水高中選修課程點名系統',  icon: 'cshs.png'}
 };
 
 function applySchoolBranding() 
 {
   const currentKey = getCurrentSchoolKey();
-  const config = SCHOOL_CONFIGS[currentKey] || SCHOOL_CONFIGS['lssh'];
+  const config = SCHOOL_CONFIGS[currentKey];
 
   // 設定瀏覽器分頁標題 <title>
   const titleTag = document.getElementById('page-title');
