@@ -12,6 +12,7 @@ let currentIdToken = localStorage.getItem('google_id_token') || '';
 
 window.onload = function() 
 {
+  applySchoolBranding();
   const today = new Date().toISOString().split('T')[0];
   const attDateElem = document.getElementById('attDate');
   const adminQueryDateElem = document.getElementById('adminQueryDate');
@@ -25,7 +26,7 @@ window.onload = function()
 // 🎯 透過網址或環境自動判斷目前是哪一間學校
 function getCurrentSchoolKey() 
 {
-// 1. 先檢查網址有沒有帶查詢參數 (例如 ?schoolKey=cshs)
+// 1. 先檢查網址有沒有帶查詢參數
   const urlParams = new URLSearchParams(window.location.search);
   const schoolKeyParam = urlParams.get('schoolKey');
   
@@ -44,7 +45,49 @@ function getCurrentSchoolKey()
   {
     return 'lssh';
   }
+}
 
+// 定義各個學校對應的名稱與圖示
+const SCHOOL_CONFIGS = 
+{
+  'lssh': 
+  {
+    name: '🏫 麗山高中自主學習點名系統',
+    icon: 'lssh.png'
+  },
+  'cshs': 
+  {
+    name: '🏫 清水高中選修課程點名系統',
+    icon: 'cshs.png'
+  }
+};
+
+function applySchoolBranding() 
+{
+  const currentKey = getCurrentSchoolKey();
+  const config = SCHOOL_CONFIGS[currentKey] || SCHOOL_CONFIGS['lssh'];
+
+  // 設定瀏覽器分頁標題 <title>
+  const titleTag = document.getElementById('page-title');
+  if (titleTag) 
+  {
+    titleTag.innerText = config.name;
+  }
+  document.title = config.name;
+
+  // 設定導覽列上的 <span> 文字
+  const titleSpan = document.getElementById('system-title');
+  if (titleSpan) 
+  {
+    titleSpan.innerText = config.name;
+  }
+
+  // 批次替換所有分頁與捷徑圖示 (class="school-icon")
+  const iconLinks = document.querySelectorAll('.school-icon');
+  iconLinks.forEach(link => {
+    link.href = config.icon;
+  });
+}
 
 // 🎯 核心 API 呼叫函式：自動帶入 ID Token 發送 POST 請求
 function callGasApi(action, payload = {}) 
