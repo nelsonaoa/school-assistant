@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link id="page-icon" rel="icon" type="image/png" href="cshs.png">
+    <link rel="apple-touch-icon" href="cshs.png">
+    <title id="page-title">點名系統</title>
+    
+    
+    <!-- Google Identity Services SDK -->
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <!-- 引入外部 CSS 檔案 -->
+    <link rel="stylesheet" href="style.css">
+  </head>
+  <body class="bg-light">
+
+    <!-- 浮動訊息提示框 -->
+    <div id="msgAlert" class="alert alert-dismissible fade shadow" role="alert">
+      <span id="msgContent"></span>
+      <button type="button" class="btn-close" onclick="this.parentElement.style.display='none';"></button>
+    </div>
+    
+    <!-- 🎯 用同一個 app-container 把導覽列與下方所有內容全部包在同一個寬度限制內 -->
+    <div class="container py-4 app-container">
+    
+
+      <!-- 頂端導覽列 -->
+      
+      <nav class="navbar navbar-expand-lg navbar-light bg-white border mb-4 d-print-none shadow-sm" style="border-radius: 10px; padding: 10px 16px;">
+        <div class="container-fluid px-0 navbar-brand fw-bold text-dark d-flex align-items-center justify-content-between m-0 w-100">
+          
+          <span id="system-title">🏫 課程點名系統</span>
+          <div class="d-flex align-items-center gap-2">
+            <span class="small text-secondary d-none d-md-inline">
+              <strong id="userNameSpan" class="text-dark">未登入</strong> 
+              <span id="roleBadge" class="badge bg-secondary ms-1">guest</span>
+            </span>
+            
+            <button id="adminBtn" class="btn btn-warning btn-sm fw-bold text-dark shadow-sm" style="display:none;" onclick="switchToAdminPage()">⚙ 管理員後台</button>
+            <button id="frontBtn" class="btn btn-outline-secondary btn-sm fw-bold" style="display:none;" onclick="switchToFrontPage()">📝 返回點名頁</button>
+
+            
+            
+            <!--
+            <button id="switchBtn" class="btn btn-outline-primary btn-sm d-flex align-items-center gap-1" style="display:none;" onclick="switchAccount()">
+              <span>🔄</span> 切換帳號
+            </button>
+            -->
+          </div>
+        </div>
+      </nav>
+
+      <!-- ================= 1. 前台：教師點名與查閱介面 ================= -->
+      <div id="frontView">
+        <div class="card shadow-sm mb-4 d-print-none">
+          <div class="card-body">
+            
+            <!-- 唯讀提示區塊 -->
+            <div id="readOnlyNotice" class="alert alert-warning py-2 mb-3 fw-bold" style="display: none;">
+              👁 唯讀模式：無法修改或儲存點名資料。
+            </div>
+
+            <div class="row g-3 align-items-end">
+              <div class="col-md-4">
+                <label for="attDate" class="form-label fw-bold">📅 上課日期</label>
+                <input type="date" id="attDate" class="form-control" onchange="loadAttendanceRoster()">
+              </div>
+              <div class="col-md-6">
+                <label for="courseSelect" class="form-label fw-bold">📚 課程名稱</label>
+                <select id="courseSelect" class="form-select" onchange="loadAttendanceRoster()">
+                  <option value="">載入中...</option>
+                </select>
+              </div>
+              <div class="col-md-2">
+                <button class="btn btn-primary w-100 fw-bold d-flex justify-content-center align-items-center gap-1" onclick="loadAttendanceRoster()">
+                  <span>🔍</span> 載入
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 點名主體區塊 (預設隱藏，讀取資料後顯示) -->
+        <div id="attendanceBlock" style="display: none;" class="card shadow-sm mb-4">
+          
+          <!-- 卡片頂部：左側為節次分頁，右側為儲存與列印按鈕 -->
+          <div class="card-header bg-light d-flex justify-content-between align-items-center py-2 px-3 d-print-none flex-wrap gap-2">
+            <ul class="nav nav-tabs card-header-tabs border-bottom-0 mb-0" id="periodTabs">
+              <!-- 動態產生節次分頁 -->
+            </ul>
+            <div class="d-flex align-items-center gap-2">
+              <button class="btn btn-outline-dark btn-sm d-print-none fw-bold" onclick="printFront()">🖨 列印點名單</button>
+              <button id="saveBtn" class="btn btn-success btn-sm px-3 fw-bold shadow-sm" onclick="submitAttendance()">💾 儲存點名</button>
+            </div>
+          </div>
+
+          <!-- 卡片內容區 -->
+          <div class="card-body px-3">
+            
+            <!-- 簽章與確認資訊橫幅 -->
+            <div id="confirmBadge" class="alert alert-success d-flex justify-content-between align-items-center py-2 mb-3 shadow-sm" style="display: none !important;">
+              <div>
+                🖋️ <strong>點名簽章：</strong> 
+                <span id="confirmTeacher" class="fw-bold text-dark"></span> 老師於 <span id="confirmTime" class="text-dark"></span> 完成點名
+              </div>
+              <div class="badge bg-success">已完成點名</div>
+            </div>
+           
+            <div id="studentListContainer">
+              <!-- 動態渲染學生資料列 -->
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+
+      <!-- ================= 2. 後台：管理員與督導綜合管理介面 ================= -->
+      <div id="adminView" style="display: none;">
+        <!-- 🎯 關鍵修復：這裡的 card 移除 d-print-none，允許內容列印 -->
+        <div class="card shadow-sm mb-4">
+          <div class="card-body">
+            <!-- 僅標題與查詢區塊設定 d-print-none 隱藏 -->
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-3 d-print-none">
+              <h4 class="card-title fw-bold text-danger mb-0">⚙️ 後台管理中心</h4>
+              
+              <!-- 後台日期查詢過濾 -->
+              <div class="d-flex align-items-center gap-2 d-print-none">
+                <label for="adminQueryDate" class="fw-bold text-nowrap">查詢日期：</label>
+                <input type="date" id="adminQueryDate" class="form-control" onchange="loadAdminSummary()">
+                <button class="btn btn-outline-secondary btn-sm text-nowrap" onclick="loadAdminSummary()">重新整理</button>
+              </div>
+            </div>
+
+            <!-- 後台子分頁導覽標籤設定 d-print-none 隱藏 -->
+            <ul class="nav nav-pills nav-fill border-top pt-3 d-print-none mb-0" id="adminTabs">
+              <li class="nav-item">
+                <button class="nav-link active fw-bold" id="tab-courses" onclick="switchAdminSubTab('courses')">📚 點名單概況</button>
+              </li>
+              <li class="nav-item">
+                <button class="nav-link fw-bold" id="tab-absent" onclick="switchAdminSubTab('absent')">⚠ 缺曠名單</button>
+              </li>
+            </ul>
+          </div>
+
+          <!-- 子分頁 1：全校課程點名概況 -->
+          <div id="adminSubTabCourses" class="admin-sub-tab border-top">
+            <div class="card-header bg-white py-3 border-0">
+              <h5 class="mb-0 fw-bold text-primary">📚 點名狀態總覽</h5>
+            </div>
+            <div class="card-body pt-0">
+              <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                  <thead class="table-light">
+                    <tr>
+                      <th style="width: 25%;">課程代碼 / 名稱</th>
+                      <th style="width: 20%;">授課教師</th>
+                      <th style="width: 40%;">點名狀況</th>
+                      <th style="width: 15%;">快速操作</th>
+                    </tr>
+                  </thead>
+                  <tbody id="adminCourseTableBody">
+                    <!-- 動態載入課程排程概況 -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <!-- 子分頁 2：全校缺曠名單總表 -->
+          <div id="adminSubTabAbsent" class="admin-sub-tab border-top" style="display: none;">
+            <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center border-0">
+              <h5 class="mb-0 fw-bold text-danger">⚠️ 缺曠名單總表 <span id="absentReportDate" class="text-muted small"></span></h5>
+              <button class="btn btn-outline-dark btn-sm d-print-none" onclick="printAdmin()">🖨️ 列印缺曠報表</button>
+            </div>
+            <div class="card-body pt-0">
+              <div class="table-responsive">
+                <table class="table table-bordered table-striped align-middle mb-0 text-center">
+                  <thead class="table-danger">
+                    <tr>
+                      <th style="width: 10%;">班級</th>
+                      <th style="width: 10%;">座號</th>
+                      <th style="width: 15%;">學生姓名</th>
+                      <th style="width: 30%;">節次與缺勤狀態</th>
+                      <th style="width: 35%;">課程名稱</th>
+                    </tr>
+                  </thead>
+                  <tbody id="adminAbsentTableBody">
+                    <!-- 動態渲染一人一列的缺席紀錄 -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+      <!-- 🔑 Google 官方登入按鈕自動渲染容器 -->
+      <div class="d-flex justify-content-end w-100"><div id="g_id_signin_container"></div></div>
+
+    </div> <!-- 👈 統一的 app-container 結尾 -->
+
+    <!-- Bootstrap 5 JS Bundle -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- 引入前端 JavaScript 邏輯檔案 -->
+    <script src="JS_Front.js"></script>
+    <script src="JS_Admin.js"></script>
+    <script src="Print.js"></script>
+  </body>
+</html>
