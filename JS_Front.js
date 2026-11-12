@@ -25,12 +25,25 @@ window.onload = function()
 // 🎯 透過網址或環境自動判斷目前是哪一間學校
 function getCurrentSchoolKey() 
 {
+// 1. 先檢查網址有沒有帶查詢參數 (例如 ?schoolKey=cshs)
+  const urlParams = new URLSearchParams(window.location.search);
+  const schoolKeyParam = urlParams.get('schoolKey');
+  
+  if (schoolKeyParam) 
+  {
+    return schoolKeyParam.toLowerCase().trim();
+  }
+
+  // 2. 如果沒有帶參數，再檢查網址的路徑檔名 (例如 lssh.html 或 cshs.html)
   const path = window.location.pathname;
-  if (path.includes('lssh')) 
-    return 'lssh';
   if (path.includes('cshs')) 
+  {
     return 'cshs';
-}
+  }
+  if (path.includes('lssh')) 
+  {
+    return 'lssh';
+  }
 
 
 // 🎯 核心 API 呼叫函式：自動帶入 ID Token 發送 POST 請求
