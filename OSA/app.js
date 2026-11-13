@@ -4,7 +4,7 @@
 let currentData = [];       // 存放所有資料（含原始匯入列與手動新增列）
 let originalFileName = '';  // 記錄原始檔名
 
-const PERIOD_NAMES = ['午休', '早自習', '第1節', '第2節', '第3節', '第4節', '第5節', '第6節', '第7節', '第8節', '第9節', '第10節'];
+const PERIOD_NAMES = ['午休', '早休', '第1節', '第2節', '第3節', '第4節', '第5節', '第6節', '第7節', '第8節', '第9節', '第10節'];
 
 // 檢查必填的 4 個欄位（studentCode 為 5 碼班級座號）
 const REQUIRED_FIELDS = [
@@ -225,7 +225,9 @@ function handleFile(file) {
   const reader = new FileReader();
   reader.onload = function(event) {
     const rawText = event.target.result;
-    const lines = rawText.split(/\r?\n/).filter(line => line.trim() !== '');
+    const lines = rawText.split(/
+?
+/).filter(line => line.trim() !== '');
     
     currentData = [];
     let errorCount = 0;
@@ -320,7 +322,7 @@ function renderTable() {
           <td class="text-primary fw-bold">${index + 1}</td>
           <td>
             <input type="text" maxlength="5" class="form-control form-control-sm new-input-5 ${errCode}" 
-                   data-index="${index}" data-field="studentCode" value="${escapeHtml(row.studentCode)}" placeholder="10309">
+                   data-index="${index}" data-field="studentCode" value="${escapeHtml(row.studentCode)}" placeholder="班級座號">
           </td>
           <td>
             <div class="date-group">
@@ -467,7 +469,8 @@ function handleDownload() {
     return `${col1}${row.spaces}${col2}`;
   });
 
-  const outputText = outputLines.join('\r\n');
+  const outputText = outputLines.join('
+');
 
   const blob = new Blob([outputText], { type: 'text/plain;charset=utf-8' });
   const url = URL.createObjectURL(blob);
