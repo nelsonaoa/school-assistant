@@ -10,9 +10,6 @@ const GRADE_MAP = {
   '3': '高三'
 };
 
-// 12 碼對應的節次標籤
-const PERIOD_LABELS = ['午', '早', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10'];
-
 // DOM 元素快取
 let dropZone, fileInput, selectFileBtn, uploadCard, editorCard;
 let tableBody, rowCount, fileNameBadge, resetBtn, downloadBtn, msgAlert;
@@ -71,7 +68,7 @@ function bindEvents() {
     if (files.length > 0) handleFile(files[0]);
   });
 
-  // 監聽表單內的即時輸入修改（日期三格 & 12個節次格）
+  // 監聽表單內的即時輸入修改（日期三格 & 12個獨立節次欄）
   tableBody.addEventListener('input', (e) => {
     const target = e.target;
     const idx = parseInt(target.dataset.index, 10);
@@ -86,7 +83,7 @@ function bindEvents() {
     // 2. 修改 12 節次代碼
     if (target.classList.contains('period-input')) {
       const pIdx = parseInt(target.dataset.pindex, 10);
-      const val = target.value.slice(0, 1); // 確保最多1碼
+      const val = target.value.slice(0, 1); // 限制最多1碼
       target.value = val;
       currentData[idx].periods[pIdx] = val;
 
@@ -97,7 +94,7 @@ function bindEvents() {
         target.classList.remove('is-absent');
       }
 
-      // 輸入滿 1 碼後自動跳到下一格，方便連續鍵盤輸入
+      // 輸入滿 1 碼後自動跳到右邊下一節課的儲存格
       if (val.length === 1 && pIdx < 11) {
         const nextInput = tableBody.querySelector(`.period-input[data-index="${idx}"][data-pindex="${pIdx + 1}"]`);
         if (nextInput) {
@@ -108,7 +105,7 @@ function bindEvents() {
     }
   });
 
-  // 點擊輸入框時自動全選文字，方便直接覆蓋修改
+  // 點擊或 Tab 切換到輸入框時自動全選文字，方便直接覆蓋修改
   tableBody.addEventListener('focusin', (e) => {
     if (e.target.tagName === 'INPUT') {
       e.target.select();
@@ -155,7 +152,7 @@ function handleFile(file) {
       const match = line.match(/^(\S+)(\s+)(\S+)$/);
       if (match && match[1].length >= 5 && match[3].length >= 23) {
         const col1 = match[1];
-        const spaces = match[2]; // 保留原始空格數量，匯出時原樣還原
+        const spaces = match[2]; // 保留原始空格數量
         const col2 = match[3];
 
         currentData.push({
@@ -189,7 +186,7 @@ function handleFile(file) {
 }
 
 // ==========================================
-// 4. 渲染結構化網頁表單
+// 4. 渲染獨立欄位大表格
 // ==========================================
 function renderTable() {
   tableBody.innerHTML = '';
@@ -197,7 +194,7 @@ function renderTable() {
   if (currentData.length === 0) {
     tableBody.innerHTML = `
       <tr>
-        <td colspan="5" class="text-center text-muted py-4">目前沒有可顯示的資料</td>
+        <td colspan="18" class="text-center text-muted py-5">目前沒有可顯示的資料</td>
       </tr>`;
   } else {
     currentData.forEach((row, index) => {
@@ -205,32 +202,35 @@ function renderTable() {
       const classNum = parseInt(row.classCode, 10) || row.classCode;
       const seatNum = parseInt(row.seatNo, 10) || row.seatNo;
 
-      // 產生 12 個連續節次小格 HTML
-      const periodsHtml = row.periods.map((code, pIdx) => {
+      // 產生 12 個獨立的 <td> 儲存格（午休、早自習、1~8節、9~10節）
+      const periodCellsHtml = row.periods.map((code, pIdx) => {
         const isAbsent = code !== '0' && code !== '';
         return `
-          <div class="period-cell">
-            <span class="period-label">${PERIOD_LABELS[pIdx]}</span>
+          <td>
             <input type="text" maxlength="1" 
                    class="form-control form-control-sm period-input ${isAbsent ? 'is-absent' : ''}" 
                    data-index="${index}" data-pindex="${pIdx}" 
                    value="${escapeHtml(code)}">
-          </div>
+          </td>
         `;
       }).join('');
 
       const tr = document.createElement('tr');
       tr.innerHTML = `
-        <td class="text-center text-muted small">${index + 1}</td>
+        <!-- 1. 序號（靜態文字） -->
+        <td class="text-muted">${index + 1}</td>
         
-        <!-- 靜態文字：年級、班級、座號 -->
-        <td class="fw-medium text-nowrap">
-          <span class="badge bg-light text-dark border me-1">${escapeHtml(gradeText)}</span>
-          ${escapeHtml(String(classNum))}班 ${escapeHtml(String(seatNum))}號
-        </td>
+        <!-- 2. 年級（靜態文字） -->
+        <td class="fw-medium">${escapeHtml(gradeText)}</td>
 
-        <!-- 連續三格文字欄位：年 / 月 / 日 -->
-        <td class="text-nowrap">
+        <!-- 3. 班級（靜態文字） -->
+        <td>${escapeHtml(String(classNum))}班</td>
+
+        <!-- 4. 座號（靜態文字） -->
+        <td>${escapeHtml(String(seatNum))}號</td>
+
+        <!-- 5. 日期（同一欄內連續三格文字輸入框：年 / 月 / 日） -->
+        <td>
           <div class="date-group">
             <input type="text" maxlength="3" class="form-control form-control-sm date-part date-input-y" 
                    data-index="${index}" data-part="year" value="${escapeHtml(row.year)}" title="民國年">
@@ -243,16 +243,12 @@ function renderTable() {
           </div>
         </td>
 
-        <!-- 連續 12 格文字欄位：午休、早自習、1~8節、9~10節 -->
-        <td>
-          <div class="period-grid">
-            ${periodsHtml}
-          </div>
-        </td>
+        <!-- 6~17. 每一節課各自為獨立儲存格 -->
+        ${periodCellsHtml}
 
-        <!-- 刪除按鈕 -->
-        <td class="text-center no-print">
-          <button type="button" class="btn btn-outline-danger btn-sm delete-btn py-0 px-2" 
+        <!-- 18. 刪除操作欄 -->
+        <td class="no-print">
+          <button type="button" class="btn btn-outline-danger btn-sm delete-btn" 
                   data-index="${index}" title="刪除此筆">
             <i class="bi bi-trash"></i>
           </button>
@@ -282,18 +278,13 @@ function handleDownload() {
   }
 
   const outputLines = currentData.map(row => {
-    // 還原第一欄（5碼）：年級(1) + 學年度(3) + 學期(1)
     const col1 = `${row.grade}${row.academicYear}${row.semester}`;
 
-    // 確保日期補滿固定長度：年(3碼)、月(2碼)、日(2碼)
     const y = String(row.year).trim().padStart(3, '0').slice(-3);
     const m = String(row.month).trim().padStart(2, '0').slice(-2);
     const d = String(row.day).trim().padStart(2, '0').slice(-2);
 
-    // 確保 12 節次每格都有 1 碼（若被清空則預設補 '0'）
     const pStr = row.periods.map(p => (p && p.trim() !== '' ? p.trim().slice(0, 1) : '0')).join('');
-
-    // 還原第二欄（23碼）：班級(2) + 座號(2) + 日期(7) + 節次(12)
     const col2 = `${row.classCode}${row.seatNo}${y}${m}${d}${pStr}`;
 
     return `${col1}${row.spaces}${col2}`;
@@ -301,7 +292,6 @@ function handleDownload() {
 
   const outputText = outputLines.join('\r\n');
 
-  // 使用純 UTF-8 下載（若你的原系統要求不能有 BOM 檔頭，可把 '\uFEFF' + 拿掉）
   const blob = new Blob([outputText], { type: 'text/plain;charset=utf-8' });
   const url = URL.createObjectURL(blob);
 
