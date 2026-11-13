@@ -3,12 +3,12 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>TXT 資料處理工具</title>
+  <title>出缺勤 TXT 資料處理系統</title>
   <!-- 引入 Bootstrap 5 CSS -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <!-- 引入 Bootstrap Icons -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
-  <!-- 引入你現有的 style.css (若 style.css 在上一層資料夾，請改為 ../style.css) -->
+  <!-- 引入你現有的 style.css (若在上一層請改 ../style.css) -->
   <link rel="stylesheet" href="style.css">
   
   <style>
@@ -27,8 +27,57 @@
       border-color: #0d6efd;
       background-color: #f1f7ff;
     }
-    .table input.form-control-sm {
-      border-radius: 6px;
+
+    /* 日期三格連續輸入框樣式 */
+    .date-group {
+      display: inline-flex;
+      align-items: center;
+      gap: 2px;
+    }
+    .date-input-y {
+      width: 44px !important;
+      padding: 2px 4px !important;
+      text-align: center;
+      font-size: 0.85rem;
+    }
+    .date-input-md {
+      width: 34px !important;
+      padding: 2px 4px !important;
+      text-align: center;
+      font-size: 0.85rem;
+    }
+
+    /* 12節課狀態代碼連續小格樣式 */
+    .period-grid {
+      display: inline-flex;
+      gap: 2px;
+    }
+    .period-cell {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .period-label {
+      font-size: 0.65rem;
+      color: #6c757d;
+      line-height: 1.1;
+      margin-bottom: 2px;
+      user-select: none;
+    }
+    .period-input {
+      width: 24px !important;
+      height: 26px !important;
+      padding: 0 !important;
+      text-align: center;
+      font-size: 0.85rem;
+      font-weight: 600;
+      border-radius: 4px;
+    }
+    /* 非 0 狀態（缺席/遲到/請假）自動高亮提醒 */
+    .period-input.is-absent {
+      background-color: #fff5f5;
+      border-color: #dc3545;
+      color: #dc3545;
     }
   </style>
 </head>
@@ -41,7 +90,7 @@
   <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm">
     <div class="container-fluid">
       <a class="navbar-brand fw-bold text-primary" href="#">
-        <i class="bi bi-file-earmark-text me-1"></i> TXT 資料處理系統
+        <i class="bi bi-file-earmark-text me-1"></i> 出缺勤 TXT 處理系統
       </a>
       <span class="navbar-text text-muted small">
         純前端即時處理
@@ -74,13 +123,10 @@
     <div class="card d-none" id="editorCard">
       <div class="card-header bg-white d-flex justify-content-between align-items-center">
         <span class="fw-bold">
-          <i class="bi bi-pencil-square me-1"></i> 2. 編輯與處理資料
+          <i class="bi bi-pencil-square me-1"></i> 2. 編輯出缺勤資料
           <span class="badge bg-secondary ms-1" id="fileNameBadge">未命名.txt</span>
         </span>
         <div class="no-print">
-          <button type="button" class="btn btn-outline-secondary btn-sm me-1" id="addRowBtn">
-            <i class="bi bi-plus-lg"></i> 新增一筆
-          </button>
           <button type="button" class="btn btn-outline-danger btn-sm" id="resetBtn">
             <i class="bi bi-arrow-counterclockwise"></i> 重新上傳
           </button>
@@ -92,9 +138,11 @@
           <table class="table table-hover align-middle mb-0" id="dataTable">
             <thead class="table-light">
               <tr>
-                <th style="width: 60px;" class="text-center">#</th>
-                <th>資料內容 (可直接修改)</th>
-                <th style="width: 80px;" class="text-center no-print">操作</th>
+                <th style="width: 36px;" class="text-center">#</th>
+                <th style="width: 135px;">年級 / 班級 / 座號</th>
+                <th style="width: 135px;">日期 (年/月/日)</th>
+                <th>出缺勤節次代碼 (12碼)</th>
+                <th style="width: 48px;" class="text-center no-print">刪除</th>
               </tr>
             </thead>
             <tbody id="tableBody">
@@ -121,7 +169,7 @@
 
   <!-- Bootstrap 5 JS Bundle -->
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-  <!-- 引入獨立出來的邏輯檔 app.js -->
+  <!-- 引入獨立邏輯檔 -->
   <script src="app.js"></script>
 </body>
 </html>
