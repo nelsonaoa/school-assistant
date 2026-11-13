@@ -1,7 +1,7 @@
 // ==========================================
 // 1. 全域狀態變數與對照表
 // ==========================================
-let currentData = [];       // 存放解析後的結構化物件陣列
+let currentData = [];       // 存放切割後的結構化資料物件
 let originalFileName = '';  // 記錄原始檔名
 
 const GRADE_MAP = {
@@ -68,33 +68,35 @@ function bindEvents() {
     if (files.length > 0) handleFile(files[0]);
   });
 
-  // 監聽表單內的即時輸入修改（日期三格 & 12個獨立節次欄）
+  // ==========================================
+  // 監聽所有文字輸入框的即時修改，同步回寫 currentData
+  // ==========================================
   tableBody.addEventListener('input', (e) => {
     const target = e.target;
     const idx = parseInt(target.dataset.index, 10);
     if (isNaN(idx) || !currentData[idx]) return;
 
-    // 1. 修改日期（年、月、日）
-    if (target.classList.contains('date-part')) {
-      const part = target.dataset.part; // 'year' | 'month' | 'day'
-      currentData[idx][part] = target.value;
+    // A. 修改一般欄位（班級、座號、年、月、日）
+    if (target.dataset.field) {
+      const fieldName = target.dataset.field;
+      currentData[idx][fieldName] = target.value;
     }
 
-    // 2. 修改 12 節次代碼
+    // B. 修改 12 個節次欄位
     if (target.classList.contains('period-input')) {
       const pIdx = parseInt(target.dataset.pindex, 10);
-      const val = target.value.slice(0, 1); // 限制最多1碼
+      const val = target.value.slice(0, 1); // 限制單一字元
       target.value = val;
       currentData[idx].periods[pIdx] = val;
 
-      // 即時切換異常高亮顏色（非 0 且非空值時標紅）
+      // 即時標紅提醒非 0 狀態
       if (val !== '0' && val !== '') {
         target.classList.add('is-absent');
       } else {
         target.classList.remove('is-absent');
       }
 
-      // 輸入滿 1 碼後自動跳到右邊下一節課的儲存格
+      // 輸入滿 1 碼自動跳到下一節課輸入框
       if (val.length === 1 && pIdx < 11) {
         const nextInput = tableBody.querySelector(`.period-input[data-index="${idx}"][data-pindex="${pIdx + 1}"]`);
         if (nextInput) {
@@ -105,14 +107,14 @@ function bindEvents() {
     }
   });
 
-  // 點擊或 Tab 切換到輸入框時自動全選文字，方便直接覆蓋修改
+  // 點擊輸入框自動全選，方便直接修改
   tableBody.addEventListener('focusin', (e) => {
     if (e.target.tagName === 'INPUT') {
       e.target.select();
     }
   });
 
-  // 監聽刪除按鈕
+  // 刪除整列資料
   tableBody.addEventListener('click', (e) => {
     const deleteBtn = e.target.closest('.delete-btn');
     if (deleteBtn) {
@@ -128,8 +130,36 @@ function bindEvents() {
 }
 
 // ==========================================
-// 3. 讀取與解析固定長度 TXT 檔案
+// 3. 字串切割核心邏輯（讀取 TXT 並拆解為欄位物件）
 // ==========================================
+function parseLineToRecord(line) {
+  // 切割：第一欄(非空白) + 中間空白 + 第二欄(非空白)
+  const match = line.match(/^(\S+)(\s+)(\S+)$/);
+  if (!match) return null;
+
+  const col1 = match[1];   // 範例: "11151" (5碼)
+  const spaces = match[2]; // 範例: "  " (保留原始空格)
+  const col2 = match[3];   // 範例: "012911510270222222220000" (23碼)
+
+  if (col1.length < 5 || col2.length < 23) return null;
+
+  return {
+    // --- 第一欄切割 ---
+    grade: col1.substring(0, 1),          // 第 1 碼：年級 ("1")
+    academicYear: col1.substring(1, 4),   // 第 2~4 碼：學年度 ("115") -> 隱藏保留
+    semester: col1.substring(4, 5),       // 第 5 碼：學期 ("1") -> 隱藏保留
+    spaces: spaces,                       // 中間空白
+
+    // --- 第二欄切割 ---
+    classCode: col2.substring(0, 2),      // 第 1~2 碼：班級 ("01")
+    seatNo: col2.substring(2, 4),         // 第 3~4 碼：座號 ("29")
+    year: col2.substring(4, 7),           // 第 5~7 碼：民國年 ("115")
+    month: col2.substring(7, 9),          // 第 8~9 碼：月 ("10")
+    day: col2.substring(9, 11),           // 第 10~11 碼：日 ("27")
+    periods: col2.substring(11, 23).split('') // 第 12~23 碼：切為 12 個單字元陣列
+  };
+}
+
 function handleFile(file) {
   if (!file.name.toLowerCase().endsWith('.txt') && file.type !== 'text/plain') {
     showAlert('請上傳 .txt 格式的純文字檔案！', 'danger');
@@ -148,25 +178,9 @@ function handleFile(file) {
     let errorCount = 0;
 
     lines.forEach((line) => {
-      // 匹配「第一欄(5碼) + 空白(1至多個空格) + 第二欄(23碼)」
-      const match = line.match(/^(\S+)(\s+)(\S+)$/);
-      if (match && match[1].length >= 5 && match[3].length >= 23) {
-        const col1 = match[1];
-        const spaces = match[2]; // 保留原始空格數量
-        const col2 = match[3];
-
-        currentData.push({
-          grade: col1.substring(0, 1),          // 第 1 碼：年級
-          academicYear: col1.substring(1, 4),   // 第 2~4 碼：學年度（隱藏保留）
-          semester: col1.substring(4, 5),       // 第 5 碼：學期（隱藏保留）
-          spaces: spaces,                       // 中間空白
-          classCode: col2.substring(0, 2),      // 第 1~2 碼：班級
-          seatNo: col2.substring(2, 4),         // 第 3~4 碼：座號
-          year: col2.substring(4, 7),           // 第 5~7 碼：民國年
-          month: col2.substring(7, 9),          // 第 8~9 碼：月
-          day: col2.substring(9, 11),           // 第 10~11 碼：日
-          periods: col2.substring(11, 23).split('') // 第 12~23 碼：12個節次陣列
-        });
+      const record = parseLineToRecord(line);
+      if (record) {
+        currentData.push(record);
       } else {
         errorCount++;
       }
@@ -186,7 +200,7 @@ function handleFile(file) {
 }
 
 // ==========================================
-// 4. 渲染獨立欄位大表格
+// 4. 渲染表格並將切割結果填入各自的文字輸入框
 // ==========================================
 function renderTable() {
   tableBody.innerHTML = '';
@@ -199,10 +213,8 @@ function renderTable() {
   } else {
     currentData.forEach((row, index) => {
       const gradeText = GRADE_MAP[row.grade] || `${row.grade}年級`;
-      const classNum = parseInt(row.classCode, 10) || row.classCode;
-      const seatNum = parseInt(row.seatNo, 10) || row.seatNo;
 
-      // 產生 12 個獨立的 <td> 儲存格（午休、早自習、1~8節、9~10節）
+      // 產生 12 個獨立節次儲存格與各自文字輸入框
       const periodCellsHtml = row.periods.map((code, pIdx) => {
         const isAbsent = code !== '0' && code !== '';
         return `
@@ -217,36 +229,42 @@ function renderTable() {
 
       const tr = document.createElement('tr');
       tr.innerHTML = `
-        <!-- 1. 序號（靜態文字） -->
+        <!-- 序號（靜態文字） -->
         <td class="text-muted">${index + 1}</td>
         
-        <!-- 2. 年級（靜態文字） -->
+        <!-- 年級（靜態文字） -->
         <td class="fw-medium">${escapeHtml(gradeText)}</td>
 
-        <!-- 3. 班級（靜態文字） -->
-        <td>${escapeHtml(String(classNum))}班</td>
+        <!-- 班級（文字輸入框） -->
+        <td>
+          <input type="text" maxlength="2" class="form-control form-control-sm code-input-2" 
+                 data-index="${index}" data-field="classCode" value="${escapeHtml(row.classCode)}">
+        </td>
 
-        <!-- 4. 座號（靜態文字） -->
-        <td>${escapeHtml(String(seatNum))}號</td>
+        <!-- 座號（文字輸入框） -->
+        <td>
+          <input type="text" maxlength="2" class="form-control form-control-sm code-input-2" 
+                 data-index="${index}" data-field="seatNo" value="${escapeHtml(row.seatNo)}">
+        </td>
 
-        <!-- 5. 日期（同一欄內連續三格文字輸入框：年 / 月 / 日） -->
+        <!-- 日期（同一欄內連續三格文字輸入框：年 / 月 / 日） -->
         <td>
           <div class="date-group">
-            <input type="text" maxlength="3" class="form-control form-control-sm date-part date-input-y" 
-                   data-index="${index}" data-part="year" value="${escapeHtml(row.year)}" title="民國年">
+            <input type="text" maxlength="3" class="form-control form-control-sm date-input-y" 
+                   data-index="${index}" data-field="year" value="${escapeHtml(row.year)}" title="民國年">
             <span class="text-muted">/</span>
-            <input type="text" maxlength="2" class="form-control form-control-sm date-part date-input-md" 
-                   data-index="${index}" data-part="month" value="${escapeHtml(row.month)}" title="月">
+            <input type="text" maxlength="2" class="form-control form-control-sm date-input-md" 
+                   data-index="${index}" data-field="month" value="${escapeHtml(row.month)}" title="月">
             <span class="text-muted">/</span>
-            <input type="text" maxlength="2" class="form-control form-control-sm date-part date-input-md" 
-                   data-index="${index}" data-part="day" value="${escapeHtml(row.day)}" title="日">
+            <input type="text" maxlength="2" class="form-control form-control-sm date-input-md" 
+                   data-index="${index}" data-field="day" value="${escapeHtml(row.day)}" title="日">
           </div>
         </td>
 
-        <!-- 6~17. 每一節課各自為獨立儲存格 -->
+        <!-- 12 節課各自為獨立儲存格與文字輸入框 -->
         ${periodCellsHtml}
 
-        <!-- 18. 刪除操作欄 -->
+        <!-- 刪除按鈕 -->
         <td class="no-print">
           <button type="button" class="btn btn-outline-danger btn-sm delete-btn" 
                   data-index="${index}" title="刪除此筆">
@@ -269,7 +287,7 @@ function handleReset() {
 }
 
 // ==========================================
-// 5. 打包並下載新版 TXT（自動補零維持固定長度）
+// 5. 重新組裝固定長度字串並下載新版 TXT
 // ==========================================
 function handleDownload() {
   if (currentData.length === 0) {
@@ -278,14 +296,19 @@ function handleDownload() {
   }
 
   const outputLines = currentData.map(row => {
+    // 還原第一欄（5碼）：年級(1) + 學年度(3) + 學期(1)
     const col1 = `${row.grade}${row.academicYear}${row.semester}`;
 
+    // 自動補零確保每個欄位都符合原始固定長度規格
+    const cls = String(row.classCode).trim().padStart(2, '0').slice(-2);
+    const seat = String(row.seatNo).trim().padStart(2, '0').slice(-2);
     const y = String(row.year).trim().padStart(3, '0').slice(-3);
     const m = String(row.month).trim().padStart(2, '0').slice(-2);
     const d = String(row.day).trim().padStart(2, '0').slice(-2);
-
     const pStr = row.periods.map(p => (p && p.trim() !== '' ? p.trim().slice(0, 1) : '0')).join('');
-    const col2 = `${row.classCode}${row.seatNo}${y}${m}${d}${pStr}`;
+
+    // 還原第二欄（23碼）
+    const col2 = `${cls}${seat}${y}${m}${d}${pStr}`;
 
     return `${col1}${row.spaces}${col2}`;
   });
