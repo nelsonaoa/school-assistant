@@ -225,9 +225,8 @@ function handleFile(file) {
   const reader = new FileReader();
   reader.onload = function(event) {
     const rawText = event.target.result;
-    const lines = rawText.split(/
-?
-/).filter(line => line.trim() !== '');
+    // 修正：正確使用 \r?\n 切割換行
+    const lines = rawText.split(/\r?\n/).filter(line => line.trim() !== '');
     
     currentData = [];
     let errorCount = 0;
@@ -469,8 +468,8 @@ function handleDownload() {
     return `${col1}${row.spaces}${col2}`;
   });
 
-  const outputText = outputLines.join('
-');
+  // 修正：正確使用 \r\n 組合行
+  const outputText = outputLines.join('\r\n');
 
   const blob = new Blob([outputText], { type: 'text/plain;charset=utf-8' });
   const url = URL.createObjectURL(blob);
