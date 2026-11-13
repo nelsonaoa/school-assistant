@@ -44,14 +44,51 @@
       vertical-align: middle;
       text-align: center;
       white-space: nowrap;
-      padding: 8px 6px;
+      padding: 6px 5px;
     }
     #dataTable thead th {
       background-color: #f1f3f5;
       font-size: 0.9rem;
-      position: sticky;
-      top: 0;
-      z-index: 2;
+    }
+    /* 最上方整欄清除快捷列樣式 */
+    #dataTable thead tr.col-action-row th {
+      background-color: #ffffff;
+      padding: 6px 4px;
+      border-bottom: 1px solid #dee2e6;
+    }
+
+    /* 新增列中的輸入框樣式 */
+    .new-input-1 {
+      width: 36px !important;
+      margin: 0 auto;
+      padding: 2px !important;
+      text-align: center;
+      font-size: 0.9rem;
+    }
+    .new-input-2 {
+      width: 44px !important;
+      margin: 0 auto;
+      padding: 2px 4px !important;
+      text-align: center;
+      font-size: 0.9rem;
+    }
+    .date-group {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 2px;
+    }
+    .date-input-y {
+      width: 46px !important;
+      padding: 2px 3px !important;
+      text-align: center;
+      font-size: 0.88rem;
+    }
+    .date-input-md {
+      width: 36px !important;
+      padding: 2px 3px !important;
+      text-align: center;
+      font-size: 0.88rem;
     }
 
     /* 每一節課文字輸入框 */
@@ -69,6 +106,14 @@
       background-color: #fff5f5;
       border-color: #dc3545;
       color: #dc3545;
+    }
+
+    /* 新增一列按鈕區 */
+    .add-row-bar {
+      padding: 10px;
+      background-color: #f8f9fa;
+      border-top: 1px solid #dee2e6;
+      text-align: center;
     }
   </style>
 </head>
@@ -125,9 +170,27 @@
       </div>
 
       <div class="card-body p-0">
-        <div class="table-responsive" style="max-height: 70vh;">
+        <div class="table-responsive" style="max-height: 68vh;">
           <table class="table table-bordered table-hover mb-0" id="dataTable">
-            <thead>
+            <thead id="tableHead">
+              <!-- 第 1 列：12 個節次上方的「整欄清除」按鈕列 -->
+              <tr class="col-action-row">
+                <th colspan="5" class="text-end text-muted small pe-2">整欄歸零：</th>
+                <th><button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2 clear-col-btn" data-pindex="0" title="整欄午休設為0"><i class="bi bi-eraser"></i></button></th>
+                <th><button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2 clear-col-btn" data-pindex="1" title="整欄早自習設為0"><i class="bi bi-eraser"></i></button></th>
+                <th><button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2 clear-col-btn" data-pindex="2" title="整欄第1節設為0"><i class="bi bi-eraser"></i></button></th>
+                <th><button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2 clear-col-btn" data-pindex="3" title="整欄第2節設為0"><i class="bi bi-eraser"></i></button></th>
+                <th><button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2 clear-col-btn" data-pindex="4" title="整欄第3節設為0"><i class="bi bi-eraser"></i></button></th>
+                <th><button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2 clear-col-btn" data-pindex="5" title="整欄第4節設為0"><i class="bi bi-eraser"></i></button></th>
+                <th><button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2 clear-col-btn" data-pindex="6" title="整欄第5節設為0"><i class="bi bi-eraser"></i></button></th>
+                <th><button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2 clear-col-btn" data-pindex="7" title="整欄第6節設為0"><i class="bi bi-eraser"></i></button></th>
+                <th><button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2 clear-col-btn" data-pindex="8" title="整欄第7節設為0"><i class="bi bi-eraser"></i></button></th>
+                <th><button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2 clear-col-btn" data-pindex="9" title="整欄第8節設為0"><i class="bi bi-eraser"></i></button></th>
+                <th><button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2 clear-col-btn" data-pindex="10" title="整欄第9節設為0"><i class="bi bi-eraser"></i></button></th>
+                <th><button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2 clear-col-btn" data-pindex="11" title="整欄第10節設為0"><i class="bi bi-eraser"></i></button></th>
+                <th></th>
+              </tr>
+              <!-- 第 2 列：正式欄位標題 -->
               <tr>
                 <th style="width: 45px;">#</th>
                 <th>年級</th>
@@ -146,13 +209,20 @@
                 <th>第8節</th>
                 <th>第9節</th>
                 <th>第10節</th>
-                <th>清除</th>
+                <th>操作</th>
               </tr>
             </thead>
             <tbody id="tableBody">
-              <!-- 由 app.js 動態切割字串並產生表格 -->
+              <!-- 由 app.js 動態產生資料列 -->
             </tbody>
           </table>
+        </div>
+
+        <!-- 在「目前共 N 筆資料」上方的 "+" 新增列按鈕 -->
+        <div class="add-row-bar">
+          <button type="button" class="btn btn-outline-primary btn-sm px-4" id="addRowBtn">
+            <i class="bi bi-plus-lg me-1"></i> 新增一筆資料
+          </button>
         </div>
       </div>
 
