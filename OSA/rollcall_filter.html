@@ -57,20 +57,14 @@
       border-bottom: 1px solid #dee2e6;
     }
 
-    /* 新增列中的輸入框樣式 */
-    .new-input-1 {
-      width: 38px !important;
-      margin: 0 auto;
-      padding: 2px !important;
-      text-align: center;
-      font-size: 0.9rem;
-    }
-    .new-input-2 {
-      width: 44px !important;
+    /* 新增列中的 5碼班級座號輸入框樣式 */
+    .new-input-5 {
+      width: 72px !important;
       margin: 0 auto;
       padding: 2px 4px !important;
       text-align: center;
       font-size: 0.9rem;
+      letter-spacing: 0.5px;
     }
     .date-group {
       display: inline-flex;
@@ -91,7 +85,7 @@
       font-size: 0.88rem;
     }
 
-    /* 必填欄位為空時的紅色底色提醒 */
+    /* 必填欄位為空或格式不符時的紅色底色提醒 */
     .input-empty-error {
       background-color: #f8d7da !important;
       border-color: #dc3545 !important;
@@ -186,9 +180,9 @@
         <div class="table-responsive" style="max-height: 72vh;">
           <table class="table table-bordered table-hover mb-0" id="dataTable">
             <thead id="tableHead">
-              <!-- 第 1 列：12 個節次上方的「整欄清除」按鈕列 -->
+              <!-- 第 1 列：12 個節次上方的「整欄清除」按鈕列 (前3欄合併：#、班級座號、日期) -->
               <tr class="col-action-row">
-                <th colspan="5"></th>
+                <th colspan="3"></th>
                 <th><button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2 clear-col-btn" data-pindex="0" title="整欄午休設為0"><i class="bi bi-eraser"></i></button></th>
                 <th><button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2 clear-col-btn" data-pindex="1" title="整欄早自習設為0"><i class="bi bi-eraser"></i></button></th>
                 <th><button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2 clear-col-btn" data-pindex="2" title="整欄第1節設為0"><i class="bi bi-eraser"></i></button></th>
@@ -206,9 +200,7 @@
               <!-- 第 2 列：正式欄位標題 -->
               <tr>
                 <th style="width: 45px;">#</th>
-                <th>年級</th>
-                <th>班級</th>
-                <th>座號</th>
+                <th>班級座號</th>
                 <th>日期</th>
                 <th>午休</th>
                 <th>早自習</th>
