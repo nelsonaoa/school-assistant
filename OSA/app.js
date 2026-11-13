@@ -98,6 +98,15 @@ function bindEvents() {
     const idx = parseInt(target.dataset.index, 10);
     if (isNaN(idx) || !currentData[idx]) return;
 
+    // 若該列先前被標記為重複錯誤底色，使用者一修改就先移除重複警示樣式
+    const parentTr = target.closest('tr');
+    if (parentTr && parentTr.classList.contains('table-danger')) {
+      parentTr.classList.remove('table-danger');
+      if (currentData[idx].isNew) {
+        parentTr.classList.add('table-primary', 'bg-opacity-10');
+      }
+    }
+
     // A. 新增列的 6 個基本欄位修改（年級、班級、座號、年、月、日）
     if (target.dataset.field) {
       const fieldName = target.dataset.field;
@@ -248,12 +257,12 @@ function handleAddRow() {
 
   const newRecord = {
     isNew: true,
-    grade: '',                                 // 年級預設為空
+    grade: '',
     academicYear: ref ? ref.academicYear : '115',
     semester: ref ? ref.semester : '1',
     spaces: ref ? ref.spaces : '  ',
-    classCode: '',                             // 班級預設為空
-    seatNo: '',                                // 座號預設為空
+    classCode: '',
+    seatNo: '',
     year: ref ? ref.year : '115',
     month: ref ? ref.month : '01',
     day: ref ? ref.day : '01',
@@ -297,9 +306,9 @@ function renderTable() {
       }).join('');
 
       const tr = document.createElement('tr');
+      tr.dataset.rowIndex = index;
 
       if (row.isNew) {
-        // 檢查 6 個必填欄位是否為空，若為空則加上紅色底色 class
         const errGrade = String(row.grade).trim() === '' ? 'input-empty-error' : '';
         const errClass = String(row.classCode).trim() === '' ? 'input-empty-error' : '';
         const errSeat  = String(row.seatNo).trim() === '' ? 'input-empty-error' : '';
@@ -379,7 +388,7 @@ function handleReset() {
 }
 
 // ==========================================
-// 6. 檢查空值並打包下載新版 TXT
+// 6. 檢查空值與重複資料，並打包下載新版 TXT
 // ==========================================
 function handleDownload() {
   if (currentData.length === 0) {
@@ -387,14 +396,22 @@ function handleDownload() {
     return;
   }
 
-  // 依序檢查所有資料的「年級、班級、座號、年、月、日」是否為空
+  // 清除先前的重複列警示底色
+  tableBody.querySelectorAll('tr.table-danger').forEach(tr => {
+    tr.classList.remove('table-danger');
+    const idx = parseInt(tr.dataset.rowIndex, 10);
+    if (!isNaN(idx) && currentData[idx] && currentData[idx].isNew) {
+      tr.classList.add('table-primary', 'bg-opacity-10');
+    }
+  });
+
+  // 步驟 A：依序檢查所有資料的「年級、班級、座號、年、月、日」是否為空
   for (let i = 0; i < currentData.length; i++) {
     const row = currentData[i];
     for (const field of REQUIRED_FIELDS) {
       if (String(row[field.key]).trim() === '') {
         showAlert(`第 ${i + 1} 筆資料的「${field.label}」尚未填寫！`, 'danger');
         
-        // 找到對應的輸入框並聚焦（focus）
         const targetInput = tableBody.querySelector(`input[data-index="${i}"][data-field="${field.key}"]`);
         if (targetInput) {
           targetInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -405,11 +422,50 @@ function handleDownload() {
     }
   }
 
+  // 步驟 B：檢查是否有相同的「年級、班級、座號、日期」重複資料
+  const seenMap = new Map(); // Key: "年級-班級(2碼)-座號(2碼)-年(3碼)-月(2碼)-日(2碼)" -> Value: 第一次出現的列索引
+  for (let i = 0; i < currentData.length; i++) {
+    const row = currentData[i];
+    const g   = String(row.grade).trim().slice(0, 1);
+    const cls = String(row.classCode).trim().padStart(2, '0').slice(-2);
+    const seat = String(row.seatNo).trim().padStart(2, '0').slice(-2);
+    const y   = String(row.year).trim().padStart(3, '0').slice(-3);
+    const m   = String(row.month).trim().padStart(2, '0').slice(-2);
+    const d   = String(row.day).trim().padStart(2, '0').slice(-2);
+
+    const uniqueKey = `${g}-${cls}-${seat}-${y}-${m}-${d}`;
+
+    if (seenMap.has(uniqueKey)) {
+      const firstIdx = seenMap.get(uniqueKey);
+      const classNum = parseInt(cls, 10) || cls;
+      const seatNum = parseInt(seat, 10) || seat;
+
+      showAlert(
+        `第 ${i + 1} 筆資料與第 ${firstIdx + 1} 筆資料重複（${g}年${classNum}班${seatNum}號 - ${y}/${m}/${d}），請檢查！`,
+        'danger'
+      );
+
+      // 高亮該筆重複列並自動聚焦
+      const dupTr = tableBody.querySelector(`tr[data-row-index="${i}"]`);
+      if (dupTr) {
+        dupTr.classList.remove('table-primary', 'bg-opacity-10');
+        dupTr.classList.add('table-danger');
+        dupTr.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+        const focusInput = dupTr.querySelector('input');
+        if (focusInput) focusInput.focus();
+      }
+      return; // 中斷下載
+    }
+
+    seenMap.set(uniqueKey, i);
+  }
+
+  // 步驟 C：通過所有檢查，組裝固定長度字串並下載
   const outputLines = currentData.map(row => {
     const g = String(row.grade).trim().slice(0, 1);
     const col1 = `${g}${row.academicYear}${row.semester}`;
 
-    // 自動補零確保固定長度：班級(2碼)、座號(2碼)、年(3碼)、月(2碼)、日(2碼)
     const cls = String(row.classCode).trim().padStart(2, '0').slice(-2);
     const seat = String(row.seatNo).trim().padStart(2, '0').slice(-2);
     const y = String(row.year).trim().padStart(3, '0').slice(-3);
@@ -447,7 +503,7 @@ function showAlert(message, type = 'success') {
   msgAlert.style.display = 'block';
   setTimeout(() => {
     msgAlert.style.display = 'none';
-  }, 3000);
+  }, 4000);
 }
 
 function escapeHtml(str) {
