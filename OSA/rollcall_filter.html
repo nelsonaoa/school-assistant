@@ -116,10 +116,12 @@
 
     /* 新增一列按鈕區 */
     .add-row-bar {
-      padding: 10px;
+      padding: 12px;
       background-color: #f8f9fa;
       border-top: 1px solid #dee2e6;
       text-align: center;
+      border-bottom-left-radius: 10px;
+      border-bottom-right-radius: 10px;
     }
   </style>
 </head>
@@ -148,8 +150,7 @@
       <div class="card-body">
         <div class="upload-drop-zone" id="dropZone">
           <i class="bi bi-file-text display-4 text-secondary"></i>
-          <h6 class="mt-3 mb-1">將 TXT 檔案拖曳到此處</h6>
-          
+          <h6 class="mt-3 mb-2">將 TXT 檔案拖曳到此處</h6>
           <button type="button" class="btn btn-primary btn-sm px-3" id="selectFileBtn">
             <i class="bi bi-folder2-open me-1"></i> 選擇檔案
           </button>
@@ -160,25 +161,34 @@
 
     <!-- 區塊 2：大表格資料編輯卡片 -->
     <div class="card d-none" id="editorCard">
-      <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
-        <span class="fw-bold fs-6">
-          <i class="bi bi-table me-1"></i> 出缺勤明細表
-          <span class="badge bg-secondary ms-2" id="fileNameBadge">未命名.txt</span>
-        </span>
-        <div>
+      <div class="card-header bg-white d-flex flex-wrap justify-content-between align-items-center gap-2 py-3">
+        <!-- 左側：標題 + 檔名徽章 + 目前共 N 筆資料 -->
+        <div class="d-flex align-items-center flex-wrap gap-2">
+          <span class="fw-bold fs-6">
+            <i class="bi bi-table me-1"></i> 出缺勤明細表
+          </span>
+          <span class="badge bg-secondary" id="fileNameBadge">未命名.txt</span>
+          <span class="text-muted small ms-1">目前共 <strong id="rowCount" class="text-dark">0</strong> 筆資料</span>
+        </div>
+
+        <!-- 右側：重新上傳 + 下載新版 TXT -->
+        <div class="d-flex align-items-center gap-2">
           <button type="button" class="btn btn-outline-danger btn-sm" id="resetBtn">
             <i class="bi bi-arrow-counterclockwise me-1"></i> 重新上傳
+          </button>
+          <button type="button" class="btn btn-success btn-sm px-3" id="downloadBtn">
+            <i class="bi bi-download me-1"></i> 下載新版 TXT
           </button>
         </div>
       </div>
 
       <div class="card-body p-0">
-        <div class="table-responsive" style="max-height: 68vh;">
+        <div class="table-responsive" style="max-height: 72vh;">
           <table class="table table-bordered table-hover mb-0" id="dataTable">
             <thead id="tableHead">
               <!-- 第 1 列：12 個節次上方的「整欄清除」按鈕列 -->
               <tr class="col-action-row">
-                <th colspan="5" class="text-end text-muted small pe-2"></th>
+                <th colspan="5"></th>
                 <th><button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2 clear-col-btn" data-pindex="0" title="整欄午休設為0"><i class="bi bi-eraser"></i></button></th>
                 <th><button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2 clear-col-btn" data-pindex="1" title="整欄早自習設為0"><i class="bi bi-eraser"></i></button></th>
                 <th><button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2 clear-col-btn" data-pindex="2" title="整欄第1節設為0"><i class="bi bi-eraser"></i></button></th>
@@ -221,19 +231,10 @@
           </table>
         </div>
 
-        <!-- 在「目前共 N 筆資料」上方的 "+" 新增列按鈕 -->
+        <!-- 表格底部的 "+" 新增列按鈕 -->
         <div class="add-row-bar">
           <button type="button" class="btn btn-outline-primary btn-sm px-4" id="addRowBtn">
             <i class="bi bi-plus-lg me-1"></i> 新增一筆資料
-          </button>
-        </div>
-      </div>
-
-      <div class="card-footer bg-white d-flex justify-content-between align-items-center py-3">
-        <span class="text-muted">目前共 <strong id="rowCount" class="text-dark">0</strong> 筆資料</span>
-        <div>
-          <button type="button" class="btn btn-success btn-sm px-4" id="downloadBtn">
-            <i class="bi bi-download me-1"></i> 下載新版 TXT
           </button>
         </div>
       </div>
