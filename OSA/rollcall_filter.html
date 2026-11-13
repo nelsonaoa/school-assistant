@@ -54,35 +54,6 @@
       z-index: 2;
     }
 
-    /* 班級、座號文字輸入框 */
-    .code-input-2 {
-      width: 44px !important;
-      margin: 0 auto;
-      padding: 3px 4px !important;
-      text-align: center;
-      font-size: 0.9rem;
-    }
-
-    /* 日期連續三格文字輸入框 */
-    .date-group {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 3px;
-    }
-    .date-input-y {
-      width: 48px !important;
-      padding: 3px 4px !important;
-      text-align: center;
-      font-size: 0.9rem;
-    }
-    .date-input-md {
-      width: 38px !important;
-      padding: 3px 4px !important;
-      text-align: center;
-      font-size: 0.9rem;
-    }
-
     /* 每一節課文字輸入框 */
     .period-input {
       width: 36px !important;
@@ -146,7 +117,7 @@
           <i class="bi bi-table me-1"></i> 2. 出缺勤明細表
           <span class="badge bg-secondary ms-2" id="fileNameBadge">未命名.txt</span>
         </span>
-        <div class="no-print">
+        <div>
           <button type="button" class="btn btn-outline-danger btn-sm" id="resetBtn">
             <i class="bi bi-arrow-counterclockwise me-1"></i> 重新上傳
           </button>
@@ -162,7 +133,7 @@
                 <th>年級</th>
                 <th>班級</th>
                 <th>座號</th>
-                <th style="min-width: 155px;">日期 (年 / 月 / 日)</th>
+                <th>日期</th>
                 <th>午休</th>
                 <th>早自習</th>
                 <th>第1節</th>
@@ -175,22 +146,19 @@
                 <th>第8節</th>
                 <th>第9節</th>
                 <th>第10節</th>
-                <th class="no-print">操作</th>
+                <th>清除</th>
               </tr>
             </thead>
             <tbody id="tableBody">
-              <!-- 由 app.js 動態切割字串並填入各個輸入框 -->
+              <!-- 由 app.js 動態切割字串並產生表格 -->
             </tbody>
           </table>
         </div>
       </div>
 
-      <div class="card-footer bg-white d-flex justify-content-between align-items-center py-3 no-print">
+      <div class="card-footer bg-white d-flex justify-content-between align-items-center py-3">
         <span class="text-muted">目前共 <strong id="rowCount" class="text-dark">0</strong> 筆資料</span>
         <div>
-          <button type="button" class="btn btn-outline-dark btn-sm me-2 px-3" onclick="window.print()">
-            <i class="bi bi-printer me-1"></i> 列印表格
-          </button>
           <button type="button" class="btn btn-success btn-sm px-4" id="downloadBtn">
             <i class="bi bi-download me-1"></i> 下載新版 TXT
           </button>
