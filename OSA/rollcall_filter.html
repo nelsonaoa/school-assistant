@@ -3,10 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>出缺勤 TXT 資料處理系統</title>
+  <title>出缺勤資料過濾系統</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="../style.css">
   
   <style>
     /* 讓大表格寬敞展開，同時保留你原本 CSS 的色調與圓角 */
@@ -59,7 +59,7 @@
 
     /* 新增列中的輸入框樣式 */
     .new-input-1 {
-      width: 36px !important;
+      width: 38px !important;
       margin: 0 auto;
       padding: 2px !important;
       text-align: center;
@@ -89,6 +89,12 @@
       padding: 2px 3px !important;
       text-align: center;
       font-size: 0.88rem;
+    }
+
+    /* 必填欄位為空時的紅色底色提醒 */
+    .input-empty-error {
+      background-color: #f8d7da !important;
+      border-color: #dc3545 !important;
     }
 
     /* 每一節課文字輸入框 */
@@ -126,11 +132,8 @@
   <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm">
     <div class="container-fluid">
       <a class="navbar-brand fw-bold text-primary" href="#">
-        <i class="bi bi-file-earmark-text me-1"></i> 出缺勤 TXT 處理系統
+        <i class="bi bi-file-earmark-text me-1"></i> 出缺勤資料過濾系統
       </a>
-      <span class="navbar-text text-muted small">
-        純前端即時處理
-      </span>
     </div>
   </nav>
 
@@ -140,13 +143,13 @@
     <!-- 區塊 1：檔案上傳卡片 -->
     <div class="card" id="uploadCard">
       <div class="card-header bg-white fw-bold">
-        <i class="bi bi-cloud-arrow-up me-1"></i> 1. 匯入 TXT 檔案
+        <i class="bi bi-cloud-arrow-up me-1"></i> 匯入 TXT 檔案
       </div>
       <div class="card-body">
         <div class="upload-drop-zone" id="dropZone">
           <i class="bi bi-file-text display-4 text-secondary"></i>
           <h6 class="mt-3 mb-1">將 TXT 檔案拖曳到此處</h6>
-          <p class="text-muted small mb-3">支援 UTF-8 編碼純文字檔 (.txt)</p>
+          
           <button type="button" class="btn btn-primary btn-sm px-3" id="selectFileBtn">
             <i class="bi bi-folder2-open me-1"></i> 選擇檔案
           </button>
@@ -159,7 +162,7 @@
     <div class="card d-none" id="editorCard">
       <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
         <span class="fw-bold fs-6">
-          <i class="bi bi-table me-1"></i> 2. 出缺勤明細表
+          <i class="bi bi-table me-1"></i> 出缺勤明細表
           <span class="badge bg-secondary ms-2" id="fileNameBadge">未命名.txt</span>
         </span>
         <div>
