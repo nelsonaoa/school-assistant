@@ -87,8 +87,7 @@ function downloadAbsenceTxt()
   const academicYear = String(academicYearNum).padStart(3, '0').slice(-3);
   const semester = (monthNum >= 8 || monthNum === 1) ? '1' : '2';
 
-  // 狀態對應代碼 (0=出席, 1=遲到, 2=曠課)
-  const statusCodeMap = {
+    const statusCodeMap = {
     '出席': '-',
     '遲到': '1',
     '缺席': '2'
