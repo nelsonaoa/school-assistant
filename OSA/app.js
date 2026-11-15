@@ -340,8 +340,7 @@ function handleFile(file) {
   const reader = new FileReader();
   reader.onload = function(event) {
     const rawText = event.target.result;
-    const lines = rawText.split(/?
-/).filter(line => line.trim() !== '');
+    const lines = rawText.split(/\r?\n/).filter(line => line.trim() !== '');
     
     currentData = [];
     let errorCount = 0;
