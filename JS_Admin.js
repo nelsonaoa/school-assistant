@@ -145,7 +145,7 @@ function loadAdminSummary()
         const studentMap = {};
 
         res.absentList.forEach(a => {
-          // 🎯【修正重點】：優先以 studentId 結合姓名、班座做唯一識別
+          
           const key = (a.studentId && a.studentId !== '-') 
             ? a.studentId 
             : `${a.className}_${a.seatNum}_${a.studentName}`;
