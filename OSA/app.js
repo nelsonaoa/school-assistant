@@ -1,9 +1,9 @@
 // ==========================================
 // 1. 全域狀態變數與必填欄位定義
 // ==========================================
-let currentData = [];       // 存放所有資料（含原始匯入列與手動新增列）
-let originalFileName = '';  // 記錄原始檔名
-let weekDates = [];         // 存放 7 天的日期結構 [{ y, m, d, dateStr, label }]
+let currentData = [];       // 存放所有資料（主檔 A 及其整合修改後的內容）
+let originalFileName = '';  // 記錄主檔 A 的原始檔名
+let weekDates = [];         // 存放 7 天的日期結構
 let activeDateStr = '';     // 目前選中的分頁日期 (例如 "115/10/27")
 
 const PERIOD_NAMES = ['午休', '早自習', '第1節', '第2節', '第3節', '第4節', '第5節', '第6節', '第7節', '第8節', '第9節', '第10節'];
@@ -19,6 +19,7 @@ const REQUIRED_FIELDS = [
 
 // DOM 元素快取
 let dropZone, fileInput, selectFileBtn, uploadCard, editorCard;
+let mergeFileBtn, mergeFileInput;
 let dayTabs, tableHead, tableBody, rowCount, tabRowCount, fileNameBadge, addRowBtn, resetBtn, downloadBtn, msgAlert;
 
 // ==========================================
@@ -35,6 +36,8 @@ function initDOM() {
   selectFileBtn = document.getElementById('selectFileBtn');
   uploadCard = document.getElementById('uploadCard');
   editorCard = document.getElementById('editorCard');
+  mergeFileBtn = document.getElementById('mergeFileBtn');
+  mergeFileInput = document.getElementById('mergeFileInput');
   dayTabs = document.getElementById('dayTabs');
   tableHead = document.getElementById('tableHead');
   tableBody = document.getElementById('tableBody');
@@ -48,6 +51,7 @@ function initDOM() {
 }
 
 function bindEvents() {
+  // 主檔 A 上傳
   selectFileBtn.addEventListener('click', (e) => {
     e.stopPropagation();
     fileInput.click();
@@ -77,6 +81,16 @@ function bindEvents() {
   dropZone.addEventListener('drop', (e) => {
     const files = e.dataTransfer.files;
     if (files.length > 0) handleFile(files[0]);
+  });
+
+  // 第二個 TXT (B) 整合按鈕事件
+  mergeFileBtn.addEventListener('click', () => {
+    mergeFileInput.value = ''; // 清空值，允許重複匯入同檔名檔案
+    mergeFileInput.click();
+  });
+
+  mergeFileInput.addEventListener('change', (e) => {
+    if (e.target.files.length > 0) handleMergeFile(e.target.files[0]);
   });
 
   // 0. 點擊七天分頁標籤切換日期
@@ -223,15 +237,6 @@ function getRowDateStr(row) {
   return `${y}/${m}/${d}`;
 }
 
-function getWeekdayName(rocYearStr, monthStr, dayStr) {
-  const adYear = parseInt(rocYearStr, 10) + 1911;
-  const month = parseInt(monthStr, 10) - 1;
-  const day = parseInt(dayStr, 10);
-  const dateObj = new Date(adYear, month, day);
-  if (isNaN(dateObj.getTime())) return '';
-  return WEEKDAY_NAMES[dateObj.getDay()];
-}
-
 // 根據匯入資料的日期，推算出該週（週一至週日）共 7 天的分頁標籤
 function buildWeekDatesFromData(dataList) {
   let baseDate = new Date();
@@ -249,7 +254,7 @@ function buildWeekDatesFromData(dataList) {
     }
   }
 
-  // 計算該週的「星期一」 (getDay(): 0為週日, 1為週一 ... 6為週六)
+  // 計算該週的「星期一」
   const dayOfWeek = baseDate.getDay();
   const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
   const monday = new Date(baseDate);
@@ -282,7 +287,6 @@ function renderDayTabs() {
   dayTabs.innerHTML = '';
 
   weekDates.forEach(dayObj => {
-    // 計算該分頁日期共有幾筆資料
     const count = currentData.filter(row => getRowDateStr(row) === dayObj.dateStr).length;
     const isActive = dayObj.dateStr === activeDateStr;
 
@@ -299,7 +303,7 @@ function renderDayTabs() {
 }
 
 // ==========================================
-// 4. 字串切割核心邏輯（合併年級+班級+座號為 5 碼 studentCode）
+// 4. 字串切割與主檔(A)匯入邏輯
 // ==========================================
 function parseLineToRecord(line) {
   const match = line.match(/^(\S+)(\s+)(\S+)$/);
@@ -354,7 +358,6 @@ function handleFile(file) {
       }
     });
 
-    // 建立 7 天分頁，並預設選取第一個有資料的分頁（若無則選週一）
     weekDates = buildWeekDatesFromData(currentData);
     const firstNonEmptyDay = weekDates.find(d => currentData.some(r => getRowDateStr(r) === d.dateStr));
     activeDateStr = firstNonEmptyDay ? firstNonEmptyDay.dateStr : weekDates[0].dateStr;
@@ -367,7 +370,96 @@ function handleFile(file) {
     if (errorCount > 0) {
       showAlert(`載入 ${currentData.length} 筆資料（略過 ${errorCount} 筆格式不符的行）`, 'warning');
     } else {
-      showAlert(`成功載入「${file.name}」，共 ${currentData.length} 筆資料`);
+      showAlert(`成功載入主檔「${file.name}」，共 ${currentData.length} 筆資料`);
+    }
+  };
+  reader.readAsText(file, 'UTF-8');
+}
+
+// ==========================================
+// 4-2. 第二個 TXT (B) 整合邏輯
+// 規則：
+// 1. 判定標準：5碼班級座號 + 日期 完全相同
+// 2. A已有相同資料：B節次為 '0' 無視；B節次為 '1' 或 '2' 則覆蓋 A 的相對位置
+// 3. A沒有該資料：整行資料貼進 A
+// ==========================================
+function handleMergeFile(file) {
+  if (!file.name.toLowerCase().endsWith('.txt') && file.type !== 'text/plain') {
+    showAlert('請上傳 .txt 格式的純文字檔案！', 'danger');
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = function(event) {
+    const rawText = event.target.result;
+    const lines = rawText.split(/\r?\n/).filter(line => line.trim() !== '');
+
+    let mergedCount = 0;   // 命中既有資料並覆蓋的筆數
+    let appendedCount = 0; // 新增貼入 A 的筆數
+    let errorCount = 0;
+
+    // 建立主檔 A 的快速查詢索引表：key = "5碼班級座號-YYY/MM/DD"
+    const existingMap = new Map();
+    currentData.forEach((row, index) => {
+      const key = `${String(row.studentCode).trim()}-${getRowDateStr(row)}`;
+      existingMap.set(key, index);
+    });
+
+    lines.forEach((line) => {
+      const recordB = parseLineToRecord(line);
+      if (!recordB) {
+        errorCount++;
+        return;
+      }
+
+      const keyB = `${String(recordB.studentCode).trim()}-${getRowDateStr(recordB)}`;
+
+      if (existingMap.has(keyB)) {
+        // 規則 2：B 裡面有的資料，A 裡面也有 -> 進行彙整
+        const targetIdx = existingMap.get(keyB);
+        const recordA = currentData[targetIdx];
+        let isModified = false;
+
+        for (let p = 0; p < 12; p++) {
+          const valB = recordB.periods[p];
+          // 只要是 0 就無視；出現 1 或 2 則覆蓋 A 相對位置
+          if (valB === '1' || valB === '2') {
+            if (recordA.periods[p] !== valB) {
+              recordA.periods[p] = valB;
+              isModified = true;
+            }
+          }
+        }
+        if (isModified) {
+          mergedCount++;
+        }
+      } else {
+        // 規則 3：B 裡面的資料在 A 裡面沒有 -> 整行貼進 A
+        // 若 A 已有資料，對齊 A 的空白間隔格式以維持輸出排版一致
+        if (currentData.length > 0) {
+          recordB.spaces = currentData[0].spaces;
+        }
+        currentData.push(recordB);
+        existingMap.set(keyB, currentData.length - 1);
+        appendedCount++;
+      }
+    });
+
+    // 若原本 A 完全沒資料，用 B 的資料建立週日期分頁
+    if (weekDates.length === 0 && currentData.length > 0) {
+      weekDates = buildWeekDatesFromData(currentData);
+      activeDateStr = weekDates[0].dateStr;
+    }
+
+    renderDayTabs();
+    renderTable();
+
+    let msg = `整合「${file.name}」完成：更新 ${mergedCount} 筆既有資料、新增 ${appendedCount} 筆資料`;
+    if (errorCount > 0) {
+      msg += `（略過 ${errorCount} 筆格式不符的行）`;
+      showAlert(msg, 'warning');
+    } else {
+      showAlert(msg, 'success');
     }
   };
   reader.readAsText(file, 'UTF-8');
@@ -396,7 +488,6 @@ function handleAddRow() {
   renderDayTabs();
   renderTable();
 
-  // 自動聚焦到新增列的「班級座號」輸入框
   const newIndex = currentData.length - 1;
   const firstInput = tableBody.querySelector(`input[data-index="${newIndex}"][data-field="studentCode"]`);
   if (firstInput) {
@@ -410,7 +501,6 @@ function handleAddRow() {
 function renderTable() {
   tableBody.innerHTML = '';
 
-  // 篩選出符合目前分頁日期的資料，並保留其在 currentData 中的真實索引 (originalIndex)
   const filteredItems = currentData
     .map((row, originalIndex) => ({ row, originalIndex }))
     .filter(item => getRowDateStr(item.row) === activeDateStr);
@@ -425,7 +515,7 @@ function renderTable() {
   } else {
     filteredItems.forEach((item, displayIdx) => {
       const row = item.row;
-      const index = item.originalIndex; // 綁定回 currentData 的真實位置
+      const index = item.originalIndex;
 
       const periodCellsHtml = row.periods.map((code, pIdx) => {
         const isAbsent = code !== '0' && code !== '';
@@ -505,6 +595,7 @@ function handleReset() {
   weekDates = [];
   activeDateStr = '';
   fileInput.value = '';
+  mergeFileInput.value = '';
   editorCard.classList.add('d-none');
   uploadCard.classList.remove('d-none');
 }
@@ -517,7 +608,6 @@ function focusRecordRow(recordIndex, fieldKey = null) {
   if (!targetRow) return;
 
   const targetDateStr = getRowDateStr(targetRow);
-  // 若該筆資料不在目前開啟的分頁，先自動切換到那一天的分頁
   if (weekDates.some(d => d.dateStr === targetDateStr) && activeDateStr !== targetDateStr) {
     activeDateStr = targetDateStr;
     renderDayTabs();
@@ -545,7 +635,6 @@ function handleDownload() {
     return;
   }
 
-  // 清除先前的重複列警示底色
   tableBody.querySelectorAll('tr.table-danger').forEach(tr => {
     tr.classList.remove('table-danger');
     const idx = parseInt(tr.dataset.rowIndex, 10);
@@ -569,7 +658,7 @@ function handleDownload() {
 
         showAlert(msg, 'danger');
         focusRecordRow(i, field.key);
-        return; // 中斷下載
+        return;
       }
     }
   }
@@ -599,7 +688,7 @@ function handleDownload() {
           dupTr.classList.add('table-danger');
         }
       }, 60);
-      return; // 中斷下載
+      return;
     }
 
     seenMap.set(uniqueKey, i);
