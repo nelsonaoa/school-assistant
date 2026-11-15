@@ -6,7 +6,8 @@ let originalFileName = '';  // 記錄主檔 A 的原始檔名
 let weekDates = [];         // 存放 7 天的日期結構
 let activeDateStr = '';     // 目前選中的分頁日期 (例如 "115/10/27")
 
-const PERIOD_NAMES = ['午休', '早自習', '第1節', '第2節', '第3節', '第4節', '第5節', '第6節', '第7節', '第8節', '第9節', '第10節'];
+const PERIOD_COUNT = 13;
+const PERIOD_NAMES = ['午休', '早休', '第1節', '第2節', '第3節', '第4節', '第5節', '第6節', '第7節', '第8節', '第9節', '第10節', '第11節'];
 const WEEKDAY_NAMES = ['日', '一', '二', '三', '四', '五', '六'];
 
 // 檢查必填的 4 個欄位（studentCode 為 5 碼班級座號）
@@ -164,7 +165,7 @@ function bindEvents() {
       }
     }
 
-    // B. 12 個節次輸入框修改
+    // B. 13 個節次輸入框修改
     if (target.classList.contains('period-input')) {
       const pIdx = parseInt(target.dataset.pindex, 10);
       const val = target.value.slice(0, 1);
@@ -177,8 +178,8 @@ function bindEvents() {
         target.classList.remove('is-absent');
       }
 
-      // 輸入滿 1 碼自動跳到右邊下一節課輸入框
-      if (val.length === 1 && pIdx < 11) {
+      // 輸入滿 1 碼自動跳到右邊下一節課輸入框 (0 ~ 11 -> 12)
+      if (val.length === 1 && pIdx < PERIOD_COUNT - 1) {
         const nextInput = tableBody.querySelector(`.period-input[data-index="${idx}"][data-pindex="${pIdx + 1}"]`);
         if (nextInput) {
           nextInput.focus();
@@ -197,12 +198,12 @@ function bindEvents() {
 
   // 3. 監聽每一列最後一格的操作按鈕
   tableBody.addEventListener('click', (e) => {
-    // 原始匯入列 -> 橡皮擦按鈕（將該列 12 節次設為 0）
+    // 原始匯入列 -> 橡皮擦按鈕（將該列 13 節次設為 0）
     const clearRowBtn = e.target.closest('.clear-periods-btn');
     if (clearRowBtn) {
       const idx = parseInt(clearRowBtn.dataset.index, 10);
       if (!isNaN(idx) && currentData[idx]) {
-        currentData[idx].periods = Array(12).fill('0');
+        currentData[idx].periods = Array(PERIOD_COUNT).fill('0');
         renderTable();
         showAlert(`已將該筆資料的所有節次重設為 0`, 'info');
       }
@@ -303,7 +304,7 @@ function renderDayTabs() {
 }
 
 // ==========================================
-// 4. 字串切割與主檔(A)匯入邏輯
+// 4. 字串切割與主檔(A)匯入邏輯 (col2 共 24 碼：班2+座2+年3+月2+日2+節次13)
 // ==========================================
 function parseLineToRecord(line) {
   const match = line.match(/^(\S+)(\s+)(\S+)$/);
@@ -313,7 +314,7 @@ function parseLineToRecord(line) {
   const spaces = match[2];
   const col2 = match[3];
 
-  if (col1.length < 5 || col2.length < 23) return null;
+  if (col1.length < 5 || col2.length < 24) return null;
 
   const grade = col1.substring(0, 1);
   const classCode = col2.substring(0, 2);
@@ -328,7 +329,7 @@ function parseLineToRecord(line) {
     year: col2.substring(4, 7),
     month: col2.substring(7, 9),
     day: col2.substring(9, 11),
-    periods: col2.substring(11, 23).split('')
+    periods: col2.substring(11, 24).split('') // 13 碼：午休、早休、第1~11節
   };
 }
 
@@ -420,7 +421,7 @@ function handleMergeFile(file) {
         const recordA = currentData[targetIdx];
         let isModified = false;
 
-        for (let p = 0; p < 12; p++) {
+        for (let p = 0; p < PERIOD_COUNT; p++) {
           const valB = recordB.periods[p];
           // 只要是 0 就無視；出現 1 或 2 則覆蓋 A 相對位置
           if (valB === '1' || valB === '2') {
@@ -435,7 +436,6 @@ function handleMergeFile(file) {
         }
       } else {
         // 規則 3：B 裡面的資料在 A 裡面沒有 -> 整行貼進 A
-        // 若 A 已有資料，對齊 A 的空白間隔格式以維持輸出排版一致
         if (currentData.length > 0) {
           recordB.spaces = currentData[0].spaces;
         }
@@ -481,7 +481,7 @@ function handleAddRow() {
     year: activeDayObj ? activeDayObj.y : (ref ? ref.year : '115'),
     month: activeDayObj ? activeDayObj.m : (ref ? ref.month : '01'),
     day: activeDayObj ? activeDayObj.d : (ref ? ref.day : '01'),
-    periods: Array(12).fill('0')
+    periods: Array(PERIOD_COUNT).fill('0')
   };
 
   currentData.push(newRecord);
@@ -496,7 +496,7 @@ function handleAddRow() {
 }
 
 // ==========================================
-// 6. 渲染目前分頁日期的表格（只顯示 activeDateStr 的資料）
+// 6. 渲染目前分頁日期的表格（共 17 欄：#、班級座號、日期、13個節次、操作）
 // ==========================================
 function renderTable() {
   tableBody.innerHTML = '';
@@ -508,7 +508,7 @@ function renderTable() {
   if (filteredItems.length === 0) {
     tableBody.innerHTML = `
       <tr>
-        <td colspan="16" class="text-center text-muted py-5">
+        <td colspan="17" class="text-center text-muted py-5">
           <strong>${escapeHtml(activeDateStr)}</strong> 目前沒有出缺勤資料，可點擊下方「在本日新增一筆資料」
         </td>
       </tr>`;
@@ -694,7 +694,7 @@ function handleDownload() {
     seenMap.set(uniqueKey, i);
   }
 
-  // 步驟 C：拆回固定長度字串格式並下載整週完整檔案
+  // 步驟 C：拆回固定長度字串格式並下載整週完整檔案（13 碼節次）
   const outputLines = currentData.map(row => {
     const code5 = String(row.studentCode).trim();
     const grade = code5.substring(0, 1);
