@@ -1,3 +1,6 @@
+let currentAdminAbsentList = [];
+let currentAdminQueryDate = '';
+
 function switchAdminSubTab(tabName) 
 {
   document.getElementById('tab-courses').classList.toggle('active', tabName === 'courses');
@@ -130,6 +133,8 @@ function loadAdminSummary()
       // 4. 渲染全校缺席總表 (修復人名與學生資料對應 Key 值)
       const aBody = document.getElementById('adminAbsentTableBody');
       aBody.innerHTML = '';
+      currentAdminAbsentList = [];
+      currentAdminQueryDate = queryDate;
       
       if(!res.absentList || res.absentList.length === 0) 
       {
@@ -181,6 +186,9 @@ function loadAdminSummary()
           return seatX - seatY;
         });
 
+        // 儲存整理後的名單供下載 TXT 使用
+        currentAdminAbsentList = groupedList;
+
         groupedList.forEach(student => {
           student.records.sort((r1, r2) => (parseInt(r1.period, 10) || 0) - (parseInt(r2.period, 10) || 0));
 
@@ -228,6 +236,123 @@ function loadAdminSummary()
     .catch(err => {
       showMessage('載入後台失敗: ' + err.message, false);
     });
+}
+
+function downloadAbsenceTxt() 
+{
+  if(!currentAdminAbsentList || currentAdminAbsentList.length === 0) 
+  {
+    showMessage('⚠️ 目前沒有可匯出的缺曠名單資料！', false);
+    return;
+  }
+
+  const dateStr = currentAdminQueryDate || document.getElementById('adminQueryDate').value;
+  if(!dateStr) 
+  {
+    showMessage('⚠️ 無法取得查詢日期！', false);
+    return;
+  }
+
+  const dateParts = dateStr.split('-');
+  if(dateParts.length !== 3) 
+  {
+    showMessage('⚠️ 日期格式錯誤，無法匯出 TXT！', false);
+    return;
+  }
+
+  const adYear = parseInt(dateParts[0], 10);
+  const monthNum = parseInt(dateParts[1], 10);
+  const dayNum = parseInt(dateParts[2], 10);
+
+  // 計算民國年 (3碼)
+  const rocYear = String(adYear - 1911).padStart(3, '0').slice(-3);
+  const monthStr = String(monthNum).padStart(2, '0');
+  const dayStr = String(dayNum).padStart(2, '0');
+
+  // 計算學年度與學期 (8月~1月為第1學期，2月~7月為第2學期)
+  const academicYearNum = (monthNum >= 8) ? (adYear - 1911) : (adYear - 1912);
+  const academicYear = String(academicYearNum).padStart(3, '0').slice(-3);
+  const semester = (monthNum >= 8 || monthNum === 1) ? '1' : '2';
+
+  // 狀態對應代碼 (0=出席, 1=遲到, 2=曠課)
+  const statusCodeMap = {
+    '出席': '0',
+    '遲到': '1',
+    '缺席': '2'
+  };
+
+  const outputLines = [];
+  let skippedCount = 0;
+
+  currentAdminAbsentList.forEach(student => {
+    // 取出班級數字 (例如 "101" -> 年級 "1", 班級 "01")
+    const classDigits = String(student.className || '').replace(/\D/g, '');
+    const seatDigits = String(student.seatNum || '').replace(/\D/g, '');
+
+    if(classDigits.length < 3 || !seatDigits) 
+    {
+      skippedCount++;
+      return;
+    }
+
+    const grade = classDigits.substring(0, 1);
+    const classCode = classDigits.substring(1, 3);
+    const seatNo = seatDigits.padStart(2, '0').slice(-2);
+
+    // 12個節次預設皆為 '0' (出席)
+    // 索引順序: [0:午休, 1:早自習, 2:第1節, 3:第2節, ..., 11:第10節]
+    const periods = Array(12).fill('0');
+
+    student.records.forEach(r => {
+      const pNum = parseInt(r.period, 10);
+      const code = statusCodeMap[r.status] || '0';
+      if(!isNaN(pNum) && pNum >= 1 && pNum <= 10) 
+      {
+        periods[pNum + 1] = code;
+      }
+      else if(String(r.period).includes('午休')) 
+      {
+        periods[0] = code;
+      }
+      else if(String(r.period).includes('早自習')) 
+      {
+        periods[1] = code;
+      }
+    });
+
+    const col1 = `${grade}${academicYear}${semester}`;
+    const col2 = `${classCode}${seatNo}${rocYear}${monthStr}${dayStr}${periods.join('')}`;
+    outputLines.push(`${col1}  ${col2}`);
+  });
+
+  if(outputLines.length === 0) 
+  {
+    showMessage('⚠️ 沒有符合格式（需含3碼班級與座號）的資料可匯出！', false);
+    return;
+  }
+
+  const outputText = outputLines.join('\r\n');
+  const blob = new Blob([outputText], { type: 'text/plain;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+
+  const schoolKey = (typeof getCurrentSchoolKey === 'function' && getCurrentSchoolKey()) ? getCurrentSchoolKey() : 'school';
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${schoolKey}_缺曠名單_${rocYear}${monthStr}${dayStr}.txt`;
+  document.body.appendChild(a);
+  a.click();
+
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+
+  if(skippedCount > 0) 
+  {
+    showMessage(`✅ 已下載 TXT（共 ${outputLines.length} 筆，略過 ${skippedCount} 筆班座格式不符資料）`, true);
+  } 
+  else 
+  {
+    showMessage(`✅ 缺曠名單 TXT 已下載（共 ${outputLines.length} 筆）！`, true);
+  }
 }
 
 function inspectCourseFromAdmin(courseCode, dateStr) 
