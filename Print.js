@@ -89,7 +89,7 @@ function downloadAbsenceTxt()
 
   // 狀態對應代碼 (0=出席, 1=遲到, 2=曠課)
   const statusCodeMap = {
-    '出席': '0',
+    '出席': '-',
     '遲到': '1',
     '缺席': '2'
   };
