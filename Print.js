@@ -87,8 +87,9 @@ function downloadAbsenceTxt()
   const academicYear = String(academicYearNum).padStart(3, '0').slice(-3);
   const semester = (monthNum >= 8 || monthNum === 1) ? '1' : '2';
 
-    const statusCodeMap = {
-    '出席': '-',
+  // 狀態對應代碼 (0=出席, 1=遲到, 2=曠課)
+  const statusCodeMap = {
+    '出席': '0',
     '遲到': '1',
     '缺席': '2'
   };
@@ -111,14 +112,14 @@ function downloadAbsenceTxt()
     const classCode = classDigits.substring(1, 3);
     const seatNo = seatDigits.padStart(2, '0').slice(-2);
 
-    // 12個節次預設皆為 '0' (出席)
-    // 索引順序: [0:午休, 1:早自習, 2:第1節, 3:第2節, ..., 11:第10節]
-    const periods = Array(12).fill('0');
+    // 13個節次預設皆為 '0' (出席)
+    // 索引順序: [0:午休, 1:早休, 2:第1節, 3:第2節, ..., 12:第11節]
+    const periods = Array(13).fill('0');
 
     student.records.forEach(r => {
       const pNum = parseInt(r.period, 10);
       const code = statusCodeMap[r.status] || '0';
-      if(!isNaN(pNum) && pNum >= 1 && pNum <= 10) 
+      if(!isNaN(pNum) && pNum >= 1 && pNum <= 11) 
       {
         periods[pNum + 1] = code;
       }
@@ -126,7 +127,7 @@ function downloadAbsenceTxt()
       {
         periods[0] = code;
       }
-      else if(String(r.period).includes('早自習')) 
+      else if(String(r.period).includes('早休') || String(r.period).includes('早自習')) 
       {
         periods[1] = code;
       }
