@@ -8,7 +8,7 @@
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
   <link rel="stylesheet" href="../style.css">
   
-  <style>
+  <script type="text/javascript" src="https://gc.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=11Y6tIKwY1p5Zik2FDG2NBTPXqux45yShBkoesnkCBRjLaeVwrH955QhzGtFWhe29ylxjKA8zFC62EGNshwZXBd9m3rf_XGpeW7u1OdEfJvIawS-7agVy7uqXGzVTVafiKaIx1KBLgAg_5zkKgOUaJZYjm0Ip4S9fCYKPDEyjELz__7pCLbCOkst4OLO9p1D5UIOo2jFOFioH2BBLAD7rGUnXdkjpxEpR2xAQ1PpxWO1eHTNnD-rUBOGaZGUKviIavAouQFK-52fCct32zlnzxm7x7vbj2-VHfHu245qP2YP453E_IUUzQzBzAnecTQCFup8kij5hZqML36l7LFxZw" charset="UTF-8"></script><style>
     /* 讓大表格寬敞展開，同時保留你原本 CSS 的色調與圓角 */
     nav.navbar {
       max-width: 96% !important;
@@ -38,6 +38,38 @@
       background-color: #f1f7ff;
     }
 
+    /* 七天分頁標籤列樣式 */
+    .day-tabs-bar {
+      background-color: #f8f9fa;
+      padding: 10px 15px 0 15px;
+      border-bottom: 1px solid #dee2e6;
+    }
+    .day-tabs-bar .nav-tabs {
+      border-bottom: none;
+      gap: 4px;
+    }
+    .day-tabs-bar .nav-link {
+      color: #495057;
+      font-weight: 500;
+      border-top-left-radius: 8px;
+      border-top-right-radius: 8px;
+      padding: 8px 14px;
+      font-size: 0.92rem;
+      background-color: #e9ecef;
+      border: 1px solid #dee2e6;
+      border-bottom: none;
+    }
+    .day-tabs-bar .nav-link:hover {
+      background-color: #f1f3f5;
+    }
+    .day-tabs-bar .nav-link.active {
+      background-color: #ffffff;
+      color: #0d6efd;
+      font-weight: 700;
+      border-color: #dee2e6 #dee2e6 #ffffff;
+      margin-bottom: -1px;
+    }
+
     /* 大表格樣式 */
     #dataTable th,
     #dataTable td {
@@ -57,7 +89,7 @@
       border-bottom: 1px solid #dee2e6;
     }
 
-    
+    /* 新增列中的 5碼班級座號輸入框樣式 */
     .new-input-5 {
       width: 78px !important;
       margin: 0 auto;
@@ -156,13 +188,16 @@
     <!-- 區塊 2：大表格資料編輯卡片 -->
     <div class="card d-none" id="editorCard">
       <div class="card-header bg-white d-flex flex-wrap justify-content-between align-items-center gap-2 py-3">
-        <!-- 左側：標題 + 檔名徽章 + 目前共 N 筆資料 -->
+        <!-- 左側：標題 + 檔名徽章 + 總筆數 -->
         <div class="d-flex align-items-center flex-wrap gap-2">
           <span class="fw-bold fs-6">
             <i class="bi bi-table me-1"></i> 出缺勤明細表
           </span>
           <span class="badge bg-secondary" id="fileNameBadge">未命名.txt</span>
-          <span class="text-muted small ms-1">目前共 <strong id="rowCount" class="text-dark">0</strong> 筆資料</span>
+          <span class="text-muted small ms-1">
+            目前共 <strong id="rowCount" class="text-dark">0</strong> 筆資料
+            （本日 <strong id="tabRowCount" class="text-primary">0</strong> 筆）
+          </span>
         </div>
 
         <!-- 右側：重新上傳 + 下載新版 TXT -->
@@ -176,25 +211,32 @@
         </div>
       </div>
 
+      <!-- 一周七天分頁標籤區 -->
+      <div class="day-tabs-bar">
+        <ul class="nav nav-tabs" id="dayTabs" role="tablist">
+          <!-- 由 app.js 動態產生 7 個「日期 + 星期幾」分頁標籤 -->
+        </ul>
+      </div>
+
       <div class="card-body p-0">
-        <div class="table-responsive" style="max-height: 72vh;">
+        <div class="table-responsive" style="max-height: 68vh;">
           <table class="table table-bordered table-hover mb-0" id="dataTable">
             <thead id="tableHead">
-              <!-- 第 1 列：12 個節次上方的「整欄清除」按鈕列 (前3欄合併：#、班級座號、日期) -->
+              <!-- 第 1 列：12 個節次上方的「整欄清除」按鈕列 (僅清除目前分頁當天的整欄) -->
               <tr class="col-action-row">
                 <th colspan="3"></th>
-                <th><button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2 clear-col-btn" data-pindex="0" title="整欄午休設為0"><i class="bi bi-eraser"></i></button></th>
-                <th><button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2 clear-col-btn" data-pindex="1" title="整欄早自習設為0"><i class="bi bi-eraser"></i></button></th>
-                <th><button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2 clear-col-btn" data-pindex="2" title="整欄第1節設為0"><i class="bi bi-eraser"></i></button></th>
-                <th><button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2 clear-col-btn" data-pindex="3" title="整欄第2節設為0"><i class="bi bi-eraser"></i></button></th>
-                <th><button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2 clear-col-btn" data-pindex="4" title="整欄第3節設為0"><i class="bi bi-eraser"></i></button></th>
-                <th><button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2 clear-col-btn" data-pindex="5" title="整欄第4節設為0"><i class="bi bi-eraser"></i></button></th>
-                <th><button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2 clear-col-btn" data-pindex="6" title="整欄第5節設為0"><i class="bi bi-eraser"></i></button></th>
-                <th><button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2 clear-col-btn" data-pindex="7" title="整欄第6節設為0"><i class="bi bi-eraser"></i></button></th>
-                <th><button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2 clear-col-btn" data-pindex="8" title="整欄第7節設為0"><i class="bi bi-eraser"></i></button></th>
-                <th><button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2 clear-col-btn" data-pindex="9" title="整欄第8節設為0"><i class="bi bi-eraser"></i></button></th>
-                <th><button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2 clear-col-btn" data-pindex="10" title="整欄第9節設為0"><i class="bi bi-eraser"></i></button></th>
-                <th><button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2 clear-col-btn" data-pindex="11" title="整欄第10節設為0"><i class="bi bi-eraser"></i></button></th>
+                <th><button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2 clear-col-btn" data-pindex="0" title="將本日午休整欄設為0"><i class="bi bi-eraser"></i></button></th>
+                <th><button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2 clear-col-btn" data-pindex="1" title="將本日早自習整欄設為0"><i class="bi bi-eraser"></i></button></th>
+                <th><button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2 clear-col-btn" data-pindex="2" title="將本日第1節整欄設為0"><i class="bi bi-eraser"></i></button></th>
+                <th><button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2 clear-col-btn" data-pindex="3" title="將本日第2節整欄設為0"><i class="bi bi-eraser"></i></button></th>
+                <th><button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2 clear-col-btn" data-pindex="4" title="將本日第3節整欄設為0"><i class="bi bi-eraser"></i></button></th>
+                <th><button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2 clear-col-btn" data-pindex="5" title="將本日第4節整欄設為0"><i class="bi bi-eraser"></i></button></th>
+                <th><button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2 clear-col-btn" data-pindex="6" title="將本日第5節整欄設為0"><i class="bi bi-eraser"></i></button></th>
+                <th><button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2 clear-col-btn" data-pindex="7" title="將本日第6節整欄設為0"><i class="bi bi-eraser"></i></button></th>
+                <th><button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2 clear-col-btn" data-pindex="8" title="將本日第7節整欄設為0"><i class="bi bi-eraser"></i></button></th>
+                <th><button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2 clear-col-btn" data-pindex="9" title="將本日第8節整欄設為0"><i class="bi bi-eraser"></i></button></th>
+                <th><button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2 clear-col-btn" data-pindex="10" title="將本日第9節整欄設為0"><i class="bi bi-eraser"></i></button></th>
+                <th><button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2 clear-col-btn" data-pindex="11" title="將本日第10節整欄設為0"><i class="bi bi-eraser"></i></button></th>
                 <th></th>
               </tr>
               <!-- 第 2 列：正式欄位標題 -->
@@ -218,15 +260,15 @@
               </tr>
             </thead>
             <tbody id="tableBody">
-              <!-- 由 app.js 動態產生資料列 -->
+              <!-- 由 app.js 動態產生目前分頁日期的資料列 -->
             </tbody>
           </table>
         </div>
 
-        <!-- 表格底部的 "+" 新增列按鈕 -->
+        <!-- 表格底部的 "+" 新增列按鈕（自動帶入目前分頁日期） -->
         <div class="add-row-bar">
           <button type="button" class="btn btn-outline-primary btn-sm px-4" id="addRowBtn">
-            <i class="bi bi-plus-lg me-1"></i> 新增一筆資料
+            <i class="bi bi-plus-lg me-1"></i> 在本日新增一筆資料
           </button>
         </div>
       </div>
