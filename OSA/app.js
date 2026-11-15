@@ -3,8 +3,11 @@
 // ==========================================
 let currentData = [];       // 存放所有資料（含原始匯入列與手動新增列）
 let originalFileName = '';  // 記錄原始檔名
+let weekDates = [];         // 存放 7 天的日期結構 [{ y, m, d, dateStr, label }]
+let activeDateStr = '';     // 目前選中的分頁日期 (例如 "115/10/27")
 
-const PERIOD_NAMES = ['午休', '早休', '第1節', '第2節', '第3節', '第4節', '第5節', '第6節', '第7節', '第8節', '第9節', '第10節'];
+const PERIOD_NAMES = ['午休', '早自習', '第1節', '第2節', '第3節', '第4節', '第5節', '第6節', '第7節', '第8節', '第9節', '第10節'];
+const WEEKDAY_NAMES = ['日', '一', '二', '三', '四', '五', '六'];
 
 // 檢查必填的 4 個欄位（studentCode 為 5 碼班級座號）
 const REQUIRED_FIELDS = [
@@ -16,7 +19,7 @@ const REQUIRED_FIELDS = [
 
 // DOM 元素快取
 let dropZone, fileInput, selectFileBtn, uploadCard, editorCard;
-let tableHead, tableBody, rowCount, fileNameBadge, addRowBtn, resetBtn, downloadBtn, msgAlert;
+let dayTabs, tableHead, tableBody, rowCount, tabRowCount, fileNameBadge, addRowBtn, resetBtn, downloadBtn, msgAlert;
 
 // ==========================================
 // 2. 初始化與事件綁定
@@ -32,9 +35,11 @@ function initDOM() {
   selectFileBtn = document.getElementById('selectFileBtn');
   uploadCard = document.getElementById('uploadCard');
   editorCard = document.getElementById('editorCard');
+  dayTabs = document.getElementById('dayTabs');
   tableHead = document.getElementById('tableHead');
   tableBody = document.getElementById('tableBody');
   rowCount = document.getElementById('rowCount');
+  tabRowCount = document.getElementById('tabRowCount');
   fileNameBadge = document.getElementById('fileNameBadge');
   addRowBtn = document.getElementById('addRowBtn');
   resetBtn = document.getElementById('resetBtn');
@@ -74,7 +79,17 @@ function bindEvents() {
     if (files.length > 0) handleFile(files[0]);
   });
 
-  // 1. 表頭最上方「整欄清除」按鈕：將指定節次整欄（包含新增列）全部設為 0
+  // 0. 點擊七天分頁標籤切換日期
+  dayTabs.addEventListener('click', (e) => {
+    const tabBtn = e.target.closest('.day-tab-btn');
+    if (!tabBtn) return;
+
+    activeDateStr = tabBtn.dataset.dateStr;
+    renderDayTabs();
+    renderTable();
+  });
+
+  // 1. 表頭最上方「整欄清除」按鈕：將「目前分頁當天」的指定節次整欄全部設為 0
   tableHead.addEventListener('click', (e) => {
     const clearColBtn = e.target.closest('.clear-col-btn');
     if (!clearColBtn) return;
@@ -82,12 +97,21 @@ function bindEvents() {
     const pIdx = parseInt(clearColBtn.dataset.pindex, 10);
     if (isNaN(pIdx) || currentData.length === 0) return;
 
+    let affectedCount = 0;
     currentData.forEach(row => {
-      row.periods[pIdx] = '0';
+      if (getRowDateStr(row) === activeDateStr) {
+        row.periods[pIdx] = '0';
+        affectedCount++;
+      }
     });
 
+    if (affectedCount === 0) {
+      showAlert('目前分頁沒有可清除的資料', 'warning');
+      return;
+    }
+
     renderTable();
-    showAlert(`已將「${PERIOD_NAMES[pIdx]}」整欄全部設為 0`, 'info');
+    showAlert(`已將 ${activeDateStr} 的「${PERIOD_NAMES[pIdx]}」整欄設為 0`, 'info');
   });
 
   // 2. 監聽表格內所有輸入框的即時修改
@@ -118,6 +142,11 @@ function bindEvents() {
         target.classList.add('input-empty-error');
       } else {
         target.classList.remove('input-empty-error');
+      }
+
+      // 若修改了日期，即時更新上方分頁標籤上的筆數統計
+      if (['year', 'month', 'day'].includes(fieldName)) {
+        renderDayTabs();
       }
     }
 
@@ -161,7 +190,7 @@ function bindEvents() {
       if (!isNaN(idx) && currentData[idx]) {
         currentData[idx].periods = Array(12).fill('0');
         renderTable();
-        showAlert(`已將第 ${idx + 1} 筆資料的所有節次重設為 0`, 'info');
+        showAlert(`已將該筆資料的所有節次重設為 0`, 'info');
       }
       return;
     }
@@ -172,6 +201,7 @@ function bindEvents() {
       const idx = parseInt(deleteRowBtn.dataset.index, 10);
       if (!isNaN(idx) && currentData[idx] && currentData[idx].isNew) {
         currentData.splice(idx, 1);
+        renderDayTabs();
         renderTable();
         showAlert('已刪除該新增列', 'warning');
       }
@@ -184,7 +214,92 @@ function bindEvents() {
 }
 
 // ==========================================
-// 3. 字串切割核心邏輯（合併年級+班級+座號為 5 碼 studentCode）
+// 3. 民國日期與星期計算、七天分頁產生邏輯
+// ==========================================
+function getRowDateStr(row) {
+  const y = String(row.year).trim().padStart(3, '0').slice(-3);
+  const m = String(row.month).trim().padStart(2, '0').slice(-2);
+  const d = String(row.day).trim().padStart(2, '0').slice(-2);
+  return `${y}/${m}/${d}`;
+}
+
+function getWeekdayName(rocYearStr, monthStr, dayStr) {
+  const adYear = parseInt(rocYearStr, 10) + 1911;
+  const month = parseInt(monthStr, 10) - 1;
+  const day = parseInt(dayStr, 10);
+  const dateObj = new Date(adYear, month, day);
+  if (isNaN(dateObj.getTime())) return '';
+  return WEEKDAY_NAMES[dateObj.getDay()];
+}
+
+// 根據匯入資料的日期，推算出該週（週一至週日）共 7 天的分頁標籤
+function buildWeekDatesFromData(dataList) {
+  let baseDate = new Date();
+
+  if (dataList.length > 0) {
+    // 找出資料中最早的日期作為基準，推算所屬那一週的週一～週日
+    const sorted = [...dataList].sort((a, b) => getRowDateStr(a).localeCompare(getRowDateStr(b)));
+    const first = sorted[0];
+    const adYear = parseInt(first.year, 10) + 1911;
+    const month = parseInt(first.month, 10) - 1;
+    const day = parseInt(first.day, 10);
+    const parsed = new Date(adYear, month, day);
+    if (!isNaN(parsed.getTime())) {
+      baseDate = parsed;
+    }
+  }
+
+  // 計算該週的「星期一」 (getDay(): 0為週日, 1為週一 ... 6為週六)
+  const dayOfWeek = baseDate.getDay();
+  const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+  const monday = new Date(baseDate);
+  monday.setDate(baseDate.getDate() + diffToMonday);
+
+  const days = [];
+  for (let i = 0; i < 7; i++) {
+    const cur = new Date(monday);
+    cur.setDate(monday.getDate() + i);
+
+    const rocYear = String(cur.getFullYear() - 1911).padStart(3, '0');
+    const month = String(cur.getMonth() + 1).padStart(2, '0');
+    const day = String(cur.getDate()).padStart(2, '0');
+    const weekName = WEEKDAY_NAMES[cur.getDay()];
+    const dateStr = `${rocYear}/${month}/${day}`;
+
+    days.push({
+      y: rocYear,
+      m: month,
+      d: day,
+      dateStr: dateStr,
+      shortDate: `${month}/${day}`,
+      weekName: weekName
+    });
+  }
+  return days;
+}
+
+function renderDayTabs() {
+  dayTabs.innerHTML = '';
+
+  weekDates.forEach(dayObj => {
+    // 計算該分頁日期共有幾筆資料
+    const count = currentData.filter(row => getRowDateStr(row) === dayObj.dateStr).length;
+    const isActive = dayObj.dateStr === activeDateStr;
+
+    const li = document.createElement('li');
+    li.className = 'nav-item';
+    li.innerHTML = `
+      <button type="button" class="nav-link day-tab-btn ${isActive ? 'active' : ''}" data-date-str="${dayObj.dateStr}">
+        ${dayObj.shortDate} (${dayObj.weekName})
+        <span class="badge rounded-pill ${isActive ? 'bg-primary' : 'bg-secondary'} ms-1">${count}</span>
+      </button>
+    `;
+    dayTabs.appendChild(li);
+  });
+}
+
+// ==========================================
+// 4. 字串切割核心邏輯（合併年級+班級+座號為 5 碼 studentCode）
 // ==========================================
 function parseLineToRecord(line) {
   const match = line.match(/^(\S+)(\s+)(\S+)$/);
@@ -225,8 +340,8 @@ function handleFile(file) {
   const reader = new FileReader();
   reader.onload = function(event) {
     const rawText = event.target.result;
-    // 修正：正確使用 \r?\n 切割換行
-    const lines = rawText.split(/\r?\n/).filter(line => line.trim() !== '');
+    const lines = rawText.split(/?
+/).filter(line => line.trim() !== '');
     
     currentData = [];
     let errorCount = 0;
@@ -240,6 +355,12 @@ function handleFile(file) {
       }
     });
 
+    // 建立 7 天分頁，並預設選取第一個有資料的分頁（若無則選週一）
+    weekDates = buildWeekDatesFromData(currentData);
+    const firstNonEmptyDay = weekDates.find(d => currentData.some(r => getRowDateStr(r) === d.dateStr));
+    activeDateStr = firstNonEmptyDay ? firstNonEmptyDay.dateStr : weekDates[0].dateStr;
+
+    renderDayTabs();
     renderTable();
     uploadCard.classList.add('d-none');
     editorCard.classList.remove('d-none');
@@ -254,10 +375,11 @@ function handleFile(file) {
 }
 
 // ==========================================
-// 4. 新增一列（5 碼班級座號預設為空，沿用檔案學年度/學期/日期預設值）
+// 5. 新增一列（自動帶入目前選中分頁的日期）
 // ==========================================
 function handleAddRow() {
   const ref = currentData.length > 0 ? currentData[0] : null;
+  const activeDayObj = weekDates.find(d => d.dateStr === activeDateStr);
 
   const newRecord = {
     isNew: true,
@@ -265,13 +387,14 @@ function handleAddRow() {
     academicYear: ref ? ref.academicYear : '115',
     semester: ref ? ref.semester : '1',
     spaces: ref ? ref.spaces : '  ',
-    year: ref ? ref.year : '115',
-    month: ref ? ref.month : '01',
-    day: ref ? ref.day : '01',
+    year: activeDayObj ? activeDayObj.y : (ref ? ref.year : '115'),
+    month: activeDayObj ? activeDayObj.m : (ref ? ref.month : '01'),
+    day: activeDayObj ? activeDayObj.d : (ref ? ref.day : '01'),
     periods: Array(12).fill('0')
   };
 
   currentData.push(newRecord);
+  renderDayTabs();
   renderTable();
 
   // 自動聚焦到新增列的「班級座號」輸入框
@@ -283,18 +406,28 @@ function handleAddRow() {
 }
 
 // ==========================================
-// 5. 渲染表格（共 16 欄）
+// 6. 渲染目前分頁日期的表格（只顯示 activeDateStr 的資料）
 // ==========================================
 function renderTable() {
   tableBody.innerHTML = '';
 
-  if (currentData.length === 0) {
+  // 篩選出符合目前分頁日期的資料，並保留其在 currentData 中的真實索引 (originalIndex)
+  const filteredItems = currentData
+    .map((row, originalIndex) => ({ row, originalIndex }))
+    .filter(item => getRowDateStr(item.row) === activeDateStr);
+
+  if (filteredItems.length === 0) {
     tableBody.innerHTML = `
       <tr>
-        <td colspan="16" class="text-center text-muted py-5">目前沒有資料，請點擊下方「新增一筆資料」</td>
+        <td colspan="16" class="text-center text-muted py-5">
+          <strong>${escapeHtml(activeDateStr)}</strong> 目前沒有出缺勤資料，可點擊下方「在本日新增一筆資料」
+        </td>
       </tr>`;
   } else {
-    currentData.forEach((row, index) => {
+    filteredItems.forEach((item, displayIdx) => {
+      const row = item.row;
+      const index = item.originalIndex; // 綁定回 currentData 的真實位置
+
       const periodCellsHtml = row.periods.map((code, pIdx) => {
         const isAbsent = code !== '0' && code !== '';
         return `
@@ -318,7 +451,7 @@ function renderTable() {
 
         tr.classList.add('table-primary', 'bg-opacity-10');
         tr.innerHTML = `
-          <td class="text-primary fw-bold">${index + 1}</td>
+          <td class="text-primary fw-bold">${displayIdx + 1}</td>
           <td>
             <input type="text" maxlength="5" class="form-control form-control-sm new-input-5 ${errCode}" 
                    data-index="${index}" data-field="studentCode" value="${escapeHtml(row.studentCode)}" placeholder="班級座號">
@@ -347,7 +480,7 @@ function renderTable() {
         const dateStr = `${row.year}/${row.month}/${row.day}`;
 
         tr.innerHTML = `
-          <td class="text-muted">${index + 1}</td>
+          <td class="text-muted">${displayIdx + 1}</td>
           <td class="fw-medium">${escapeHtml(row.studentCode)}</td>
           <td>${escapeHtml(dateStr)}</td>
           ${periodCellsHtml}
@@ -365,18 +498,48 @@ function renderTable() {
   }
 
   rowCount.textContent = currentData.length;
+  tabRowCount.textContent = filteredItems.length;
 }
 
 function handleReset() {
   currentData = [];
+  weekDates = [];
+  activeDateStr = '';
   fileInput.value = '';
   editorCard.classList.add('d-none');
   uploadCard.classList.remove('d-none');
 }
 
 // ==========================================
-// 6. 檢查空值、長度與重複資料，並打包下載新版 TXT
+// 7. 檢查全週資料（自動切換分頁定位錯誤）並打包下載新版 TXT
 // ==========================================
+function focusRecordRow(recordIndex, fieldKey = null) {
+  const targetRow = currentData[recordIndex];
+  if (!targetRow) return;
+
+  const targetDateStr = getRowDateStr(targetRow);
+  // 若該筆資料不在目前開啟的分頁，先自動切換到那一天的分頁
+  if (weekDates.some(d => d.dateStr === targetDateStr) && activeDateStr !== targetDateStr) {
+    activeDateStr = targetDateStr;
+    renderDayTabs();
+    renderTable();
+  }
+
+  setTimeout(() => {
+    const targetTr = tableBody.querySelector(`tr[data-row-index="${recordIndex}"]`);
+    if (targetTr) {
+      targetTr.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+    const inputSelector = fieldKey
+      ? `input[data-index="${recordIndex}"][data-field="${fieldKey}"]`
+      : `tr[data-row-index="${recordIndex}"] input`;
+    const targetInput = tableBody.querySelector(inputSelector);
+    if (targetInput) {
+      targetInput.focus();
+    }
+  }, 50);
+}
+
 function handleDownload() {
   if (currentData.length === 0) {
     showAlert('目前沒有可匯出的資料！', 'warning');
@@ -392,7 +555,7 @@ function handleDownload() {
     }
   });
 
-  // 步驟 A：檢查「班級座號(必須為5碼)、年、月、日」是否填寫完整
+  // 步驟 A：檢查全週所有資料的「班級座號(必須為5碼)、年、月、日」是否填寫完整
   for (let i = 0; i < currentData.length; i++) {
     const row = currentData[i];
     for (const field of REQUIRED_FIELDS) {
@@ -400,23 +563,19 @@ function handleDownload() {
       const isInvalid = field.key === 'studentCode' ? val.length !== 5 : val === '';
 
       if (isInvalid) {
+        const dateLabel = getRowDateStr(row);
         const msg = field.key === 'studentCode'
-          ? `第 ${i + 1} 筆資料的「班級座號」必須為 5 碼數字（例如 10309）！`
-          : `第 ${i + 1} 筆資料的「${field.label}」尚未填寫！`;
+          ? `日期 ${dateLabel} 中有資料的「班級座號」必須為 5 碼數字！`
+          : `日期 ${dateLabel} 中有資料的「${field.label}」尚未填寫！`;
 
         showAlert(msg, 'danger');
-        
-        const targetInput = tableBody.querySelector(`input[data-index="${i}"][data-field="${field.key}"]`);
-        if (targetInput) {
-          targetInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          targetInput.focus();
-        }
+        focusRecordRow(i, field.key);
         return; // 中斷下載
       }
     }
   }
 
-  // 步驟 B：檢查是否有相同的「5碼班級座號 + 日期」重複資料
+  // 步驟 B：檢查全週是否有相同的「5碼班級座號 + 日期」重複資料
   const seenMap = new Map();
   for (let i = 0; i < currentData.length; i++) {
     const row = currentData[i];
@@ -428,33 +587,30 @@ function handleDownload() {
     const uniqueKey = `${code5}-${y}-${m}-${d}`;
 
     if (seenMap.has(uniqueKey)) {
-      const firstIdx = seenMap.get(uniqueKey);
-
       showAlert(
-        `第 ${i + 1} 筆資料與第 ${firstIdx + 1} 筆資料重複（${code5} - ${y}/${m}/${d}），請檢查！`,
+        `發現重複資料（班級座號 ${code5}，日期 ${y}/${m}/${d}），請檢查！`,
         'danger'
       );
 
-      const dupTr = tableBody.querySelector(`tr[data-row-index="${i}"]`);
-      if (dupTr) {
-        dupTr.classList.remove('table-primary', 'bg-opacity-10');
-        dupTr.classList.add('table-danger');
-        dupTr.scrollIntoView({ behavior: 'smooth', block: 'center' });
-
-        const focusInput = dupTr.querySelector('input');
-        if (focusInput) focusInput.focus();
-      }
+      focusRecordRow(i);
+      setTimeout(() => {
+        const dupTr = tableBody.querySelector(`tr[data-row-index="${i}"]`);
+        if (dupTr) {
+          dupTr.classList.remove('table-primary', 'bg-opacity-10');
+          dupTr.classList.add('table-danger');
+        }
+      }, 60);
       return; // 中斷下載
     }
 
     seenMap.set(uniqueKey, i);
   }
 
-  // 步驟 C：拆回固定長度字串格式並下載
+  // 步驟 C：拆回固定長度字串格式並下載整週完整檔案
   const outputLines = currentData.map(row => {
     const code5 = String(row.studentCode).trim();
-    const grade = code5.substring(0, 1);     // 第1碼放回第一欄開頭
-    const classSeat = code5.substring(1, 5); // 後4碼(班級2碼+座號2碼)放回第二欄開頭
+    const grade = code5.substring(0, 1);
+    const classSeat = code5.substring(1, 5);
 
     const col1 = `${grade}${row.academicYear}${row.semester}`;
 
@@ -468,7 +624,6 @@ function handleDownload() {
     return `${col1}${row.spaces}${col2}`;
   });
 
-  // 修正：正確使用 \r\n 組合行
   const outputText = outputLines.join('\r\n');
 
   const blob = new Blob([outputText], { type: 'text/plain;charset=utf-8' });
@@ -486,7 +641,7 @@ function handleDownload() {
 }
 
 // ==========================================
-// 7. 輔助工具函式
+// 8. 輔助工具函式
 // ==========================================
 function showAlert(message, type = 'success') {
   msgAlert.className = `alert alert-${type} shadow`;
