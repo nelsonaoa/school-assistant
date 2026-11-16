@@ -25,6 +25,11 @@ function loadAdminSummary()
         return;
       }
 
+      // 🎯 檢查當前使用者是否為 admin (只有 admin 能看見與操作註銷按鈕)
+      const roleBadge = document.getElementById('roleBadge');
+      const currentRole = roleBadge ? roleBadge.innerText.toLowerCase().trim() : '';
+      const isAdmin = (currentRole === 'admin');
+
       const queryDate = document.getElementById('adminQueryDate').value;
       const reportDateSpan = document.getElementById('absentReportDate');
       if(reportDateSpan) 
@@ -124,7 +129,7 @@ function loadAdminSummary()
         });
       }
 
-      // 4. 渲染全校缺席總表
+      // 4. 渲染全校缺席總表 (保留已註銷資料，狀態顯示 "(註銷)"，僅 admin 看得到按鈕)
       const aBody = document.getElementById('adminAbsentTableBody');
       aBody.innerHTML = '';
       currentAdminAbsentList = [];
@@ -194,32 +199,39 @@ function loadAdminSummary()
             const borderClass = isLast ? '' : 'border-bottom';
             
             const isCancelled = (r.cancelUser !== '');
-            const statusDisplay = r.status; 
+            // 🎯 需求：被註銷的資料在狀態後方加上 "(註銷)"
+            const statusDisplay = isCancelled ? `${r.status}(註銷)` : r.status; 
             
-            const rowPrintClass = isCancelled ? 'd-print-none bg-light' : '';
+            const rowBgClass = isCancelled ? 'bg-light' : '';
             const statusTextColor = isCancelled ? 'text-muted text-decoration-line-through' : (r.status === '缺席' ? 'text-danger' : 'text-warning-emphasis');
             const courseTextClass = isCancelled ? 'text-muted text-decoration-line-through' : '';
 
             // 1. 節次與狀態欄
             periodsHtml += `
-              <div class="py-2 px-1 text-center ${borderClass} flex-fill d-flex align-items-center justify-content-center gap-2 ${rowPrintClass}">
+              <div class="py-2 px-1 text-center ${borderClass} flex-fill d-flex align-items-center justify-content-center gap-2 ${rowBgClass}">
                 <span>第 ${r.period} 節</span>
                 <strong class="${statusTextColor}">${statusDisplay}</strong>
               </div>`;
 
             // 2. 課程名稱欄
             coursesHtml += `
-              <div class="py-2 px-2 text-start ${borderClass} flex-fill d-flex align-items-center ${rowPrintClass}">
+              <div class="py-2 px-2 text-start ${borderClass} flex-fill d-flex align-items-center ${rowBgClass}">
                 <span class="${courseTextClass}">${r.courseName} <span class="small">(${r.teacher})</span></span>
               </div>`;
 
-            // 3. 獨立的操作按鈕欄 (同時帶入 recordId 與 studentId 確保雙重對應不覆蓋)
-            actionsHtml += `
-              <div class="py-2 px-2 text-center ${borderClass} flex-fill d-flex align-items-center justify-content-center d-print-none ${rowPrintClass}">
+            // 3. 獨立的操作按鈕欄 ( 僅限 admin 顯示按鈕；superviewer 顯示空白)
+            let actionBtnHtml = '';
+            if (isAdmin) {
+              actionBtnHtml = `
                 <button class="btn btn-sm ${isCancelled ? 'btn-outline-secondary' : 'btn-outline-danger'} py-0 px-3 fw-bold" 
                         onclick="toggleCancelRecord('${r.recordId}', '${student.studentId}')">
                   ${isCancelled ? '取消' : '註銷'}
-                </button>
+                </button>`;
+            }
+
+            actionsHtml += `
+              <div class="py-2 px-2 text-center ${borderClass} flex-fill d-flex align-items-center justify-content-center d-print-none ${rowBgClass}">
+                ${actionBtnHtml}
               </div>`;
           });
 
@@ -252,7 +264,7 @@ function loadAdminSummary()
 }
 
 /**
- * 觸發後端切換註銷狀態（同時傳遞 recordId 與 studentId）
+ * 觸發後端切換註銷狀態
  */
 function toggleCancelRecord(recordId, studentId) 
 {
