@@ -15,7 +15,7 @@ function loadAdminSummary()
   const qDate = document.getElementById('adminQueryDate').value;
   if(!qDate) return;
 
-  showMessage('⏳ 正在載入點名概況與缺曠名單...', true);
+  showMessage('⏳ 正在載入點名單...', true);
 
   callGasApi('getAdminSummary', { targetDate: qDate })
     .then(res => {
@@ -124,7 +124,7 @@ function loadAdminSummary()
         });
       }
 
-      // 4. 渲染全校缺席總表 (🎯 修復多餘線條：改用動態 isLast 判斷邊框)
+      // 4. 渲染全校缺席總表
       const aBody = document.getElementById('adminAbsentTableBody');
       aBody.innerHTML = '';
       currentAdminAbsentList = [];
@@ -183,44 +183,40 @@ function loadAdminSummary()
         currentAdminAbsentList = groupedList;
 
         groupedList.forEach(student => {
-          // 依節次從小到大排序 (例如第 3 節在上，第 4 節在下)
-          student.records.sort((r1, r2) => (parseInt(r1.period, 10) || 0) - (parseInt(r2.period, 10) || 0));
+          const activeRecords = student.records.filter(r => !r.cancelUser);
+          // 如果該學生當天的所有缺曠紀錄都被註銷了，直接跳過不顯示該學生
+          if (activeRecords.length === 0) return; 
+          // 依節次從小到大排序
+          activeRecords.sort((r1, r2) => (parseInt(r1.period, 10) || 0) - (parseInt(r2.period, 10) || 0));
 
           let periodsHtml = '<div class="d-flex flex-column h-100">';
           let coursesHtml = '<div class="d-flex flex-column h-100">';
           let actionsHtml = '<div class="d-flex flex-column h-100">';
 
-          student.records.forEach((r, idx) => {
-            // 🎯 關鍵修正：只有當這筆記錄不是當天該學生「最後一筆有效渲染記錄」時，才加上下邊框
-            const isLast = idx === student.records.length - 1;
+          activeRecords.forEach((r, idx) => {
+            const isLast = idx === activeRecords.length - 1;
             const borderClass = isLast ? '' : 'border-bottom';
-            
-            const isCancelled = (r.cancelUser !== '');
-            const statusDisplay = r.status; 
-            
-            const rowPrintClass = isCancelled ? 'd-print-none bg-light' : '';
-            const statusTextColor = isCancelled ? 'text-muted text-decoration-line-through' : (r.status === '缺席' ? 'text-danger' : 'text-warning-emphasis');
-            const courseTextClass = isCancelled ? 'text-muted text-decoration-line-through' : '';
+            const statusTextColor = (r.status === '缺席' ? 'text-danger' : 'text-warning-emphasis');
 
             // 1. 節次與狀態欄
             periodsHtml += `
-              <div class="py-2 px-1 text-center ${borderClass} flex-fill d-flex align-items-center justify-content-center gap-2 ${rowPrintClass}">
+              <div class="py-2 px-1 text-center ${borderClass} flex-fill d-flex align-items-center justify-content-center gap-2">
                 <span>第 ${r.period} 節</span>
-                <strong class="${statusTextColor}">${statusDisplay}</strong>
+                <strong class="${statusTextColor}">${r.status}</strong>
               </div>`;
 
             // 2. 課程名稱欄
             coursesHtml += `
-              <div class="py-2 px-2 text-start ${borderClass} flex-fill d-flex align-items-center ${rowPrintClass}">
-                <span class="${courseTextClass}">${r.courseName} <span class="small">(${r.teacher})</span></span>
+              <div class="py-2 px-2 text-start ${borderClass} flex-fill d-flex align-items-center">
+                <span>${r.courseName} <span class="text-muted small">(${r.teacher})</span></span>
               </div>`;
 
-            // 3. 獨立的操作按鈕欄
+            // 3. 獨立的操作按鈕欄（點擊後直接切換為取消狀態）
             actionsHtml += `
-              <div class="py-2 px-2 text-center ${borderClass} flex-fill d-flex align-items-center justify-content-center d-print-none ${rowPrintClass}">
-                <button class="btn btn-sm ${isCancelled ? 'btn-outline-secondary' : 'btn-outline-danger'} py-0 px-3 fw-bold" 
+              <div class="py-2 px-2 text-center ${borderClass} flex-fill d-flex align-items-center justify-content-center d-print-none">
+                <button class="btn btn-sm btn-outline-danger py-0 px-3 fw-bold" 
                         onclick="toggleCancelRecord('${r.recordId}')">
-                  ${isCancelled ? '取消' : '註銷'}
+                  註銷
                 </button>
               </div>`;
           });
