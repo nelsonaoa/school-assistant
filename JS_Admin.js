@@ -124,7 +124,7 @@ function loadAdminSummary()
         });
       }
 
-      // 4. 渲染全校缺席總表 (獨立的操作欄位，不標註註銷人員姓名)
+      // 4. 渲染全校缺席總表 (完美對立欄位 + 刪除線狀態 +「取消」與「註銷」按鈕)
       const aBody = document.getElementById('adminAbsentTableBody');
       aBody.innerHTML = '';
       currentAdminAbsentList = [];
@@ -187,7 +187,7 @@ function loadAdminSummary()
 
           let periodsHtml = '<div class="d-flex flex-column h-100">';
           let coursesHtml = '<div class="d-flex flex-column h-100">';
-          let actionsHtml = '<div class="d-flex flex-column h-100">'; // 獨立的操作欄位容器
+          let actionsHtml = '<div class="d-flex flex-column h-100">';
 
           student.records.forEach((r, idx) => {
             const isLast = idx === student.records.length - 1;
@@ -195,31 +195,33 @@ function loadAdminSummary()
             
             // 判斷是否已註銷
             const isCancelled = (r.cancelUser !== '');
-            const statusDisplay = isCancelled ? `${r.status}(註銷)` : r.status;
+            
+            // 🎯 需求：不要顯示 "(註銷)" 字樣，已註銷狀態直接套用刪除線
+            const statusDisplay = r.status; 
             
             // 已註銷項目加上淡色與刪除線，並利用 d-print-none 讓列印報表時自動隱藏
             const rowPrintClass = isCancelled ? 'd-print-none bg-light text-muted' : '';
             const statusTextColor = isCancelled ? 'text-muted text-decoration-line-through' : (r.status === '缺席' ? 'text-danger' : 'text-warning-emphasis');
 
-            // 1. 節次與缺勤狀態欄
+            // 1. 節次與狀態欄
             periodsHtml += `
               <div class="py-2 px-1 text-center ${borderClass} flex-fill d-flex align-items-center justify-content-center gap-2 ${rowPrintClass}">
                 <span>第 ${r.period} 節</span>
                 <strong class="${statusTextColor}">${statusDisplay}</strong>
               </div>`;
 
-            // 2. 課程名稱欄（純文字與老師，不含按鈕）
+            // 2. 課程名稱欄（純文字，不夾帶按鈕與名字）
             coursesHtml += `
               <div class="py-2 px-2 text-start ${borderClass} flex-fill d-flex align-items-center ${rowPrintClass}">
                 <span>${r.courseName} <span class="text-muted small">(${r.teacher})</span></span>
               </div>`;
 
-            // 3. 獨立的操作按鈕欄（專屬放註銷/取消註銷按鈕）
+            // 3. 獨立的操作按鈕欄（按鈕文字簡短為「取消」與「註銷」）
             actionsHtml += `
               <div class="py-2 px-2 text-center ${borderClass} flex-fill d-flex align-items-center justify-content-center d-print-none ${rowPrintClass}">
                 <button class="btn btn-sm ${isCancelled ? 'btn-outline-secondary' : 'btn-outline-danger'} py-0 px-3 fw-bold" 
                         onclick="toggleCancelRecord('${r.recordId}')">
-                  ${isCancelled ? '取消註銷' : '註銷'}
+                  ${isCancelled ? '取消' : '註銷'}
                 </button>
               </div>`;
           });
@@ -257,10 +259,6 @@ function loadAdminSummary()
  */
 function toggleCancelRecord(recordId) 
 {
-  if (!confirm('確定要切換註銷狀態嗎？')) return;
-
-  showMessage('⏳ 正在更新註銷狀態...', true);
-
   callGasApi('toggleCancelAttendance', { recordId: recordId })
     .then(res => {
       if (res.success) 
