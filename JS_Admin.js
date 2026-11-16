@@ -219,11 +219,10 @@ function loadAdminSummary()
             actionsHtml += `
               <div class="py-2 px-2 text-center ${borderClass} flex-fill d-flex align-items-center justify-content-center d-print-none ${rowPrintClass}">
                 <button class="btn btn-sm ${isCancelled ? 'btn-outline-secondary' : 'btn-outline-danger'} py-0 px-3 fw-bold" 
-                        onclick="toggleCancelRecord('${r.recordId}')">
+                        onclick="toggleCancelRecord('${r.recordId}', '${student.studentId}')">
                   ${isCancelled ? '取消' : '註銷'}
                 </button>
               </div>`;
-          });
 
           periodsHtml += '</div>';
           coursesHtml += '</div>';
