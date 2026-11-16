@@ -31,26 +31,16 @@
 
       <!-- 頂端導覽列 -->
       <nav class="navbar navbar-expand-lg navbar-light bg-white border mb-4 d-print-none shadow-sm" style="border-radius: 10px; padding: 10px 16px;">
-        <div class="container-fluid px-0 d-flex align-items-center justify-content-between m-0 w-100 flex-wrap gap-2">
-          
-          <!-- 左側：系統名稱 -->
-          <span class="navbar-brand fw-bold text-dark m-0">
-            🏫 <span id="system-title">課程點名系統</span>
-          </span>
-
-          <!-- 右側：登入者資訊、後台切換按鈕、以及 Google 登入按鈕容器 -->
-          <div class="d-flex align-items-center gap-2 flex-wrap ms-auto justify-content-end">
-            <strong id="userNameSpan" class="text-dark small">未登入</strong> 
-            <span id="roleBadge" class="badge bg-secondary ms-1">guest</span>
-            
-            <button id="adminBtn" class="btn btn-warning btn-sm fw-bold text-dark shadow-sm" style="display:none;" onclick="switchToAdminPage()">⚙ 管理員後台</button>
-            <button id="frontBtn" class="btn btn-outline-secondary btn-sm fw-bold" style="display:none;" onclick="switchToFrontPage()">📝 返回點名頁</button>
-            
-            <!-- 🔑 讓 Google 官方登入按鈕直接在導覽列右側產生 -->
-            <div id="g_id_signin_container"></div>
+              <div class="container-fluid px-0 navbar-brand fw-bold text-dark d-flex align-items-center m-0 w-100 gap-2">
+              <span>🏫 <span id="system-title">課程點名系統</span></span>
+              <div class="d-flex align-items-center gap-2 ms-auto justify-content-end">
+                  <strong id="userNameSpan" class="text-dark small">未登入</strong> 
+                  <span id="roleBadge" class="badge bg-secondary ms-1">guest</span>
+                  <button id="adminBtn" class="btn btn-warning btn-sm fw-bold text-dark shadow-sm" style="display:none;" onclick="switchToAdminPage()">⚙ 管理員後台</button>
+                  <button id="frontBtn" class="btn btn-outline-secondary btn-sm fw-bold" style="display:none;" onclick="switchToFrontPage()">📝 返回點名頁</button>
+              </div>
+      
           </div>
-
-        </div>
       </nav>
 
       <!-- ================= 1. 前台：教師點名與查閱介面 ================= -->
@@ -201,7 +191,10 @@
 
         </div>
       </div>
-    </div> 
+      <!-- 🔑 Google 官方登入按鈕自動渲染容器 -->
+      <div class="d-flex justify-content-end w-100"><div id="g_id_signin_container"></div></div>
+
+    </div> <!-- 👈 統一的 app-container 結尾 -->
 
     <!-- Bootstrap 5 JS Bundle -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
