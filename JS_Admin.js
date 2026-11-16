@@ -195,14 +195,13 @@ function loadAdminSummary()
             
             // 判斷是否已註銷
             const isCancelled = (r.cancelUser !== '');
-            
-            // 🎯 需求：不要顯示 "(註銷)" 字樣，已註銷狀態直接套用刪除線
+            // 不要顯示 "(註銷)" 字樣，已註銷狀態直接套用刪除線
             const statusDisplay = r.status; 
             
             // 已註銷項目加上淡色與刪除線，並利用 d-print-none 讓列印報表時自動隱藏
-            const rowPrintClass = isCancelled ? 'd-print-none bg-light text-muted' : '';
+            const rowPrintClass = isCancelled ? 'd-print-none' : '';
             const statusTextColor = isCancelled ? 'text-muted text-decoration-line-through' : (r.status === '缺席' ? 'text-danger' : 'text-warning-emphasis');
-
+            
             // 1. 節次與狀態欄
             periodsHtml += `
               <div class="py-2 px-1 text-center ${borderClass} flex-fill d-flex align-items-center justify-content-center gap-2 ${rowPrintClass}">
