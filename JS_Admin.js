@@ -130,7 +130,7 @@ function loadAdminSummary()
         });
       }
 
-      // 4. 渲染全校缺席總表 (修復人名與學生資料對應 Key 值)
+      // 4. 渲染全校缺席總表 (整合註銷功能與列印自動過濾)
       const aBody = document.getElementById('adminAbsentTableBody');
       aBody.innerHTML = '';
       currentAdminAbsentList = [];
@@ -138,14 +138,13 @@ function loadAdminSummary()
       
       if(!res.absentList || res.absentList.length === 0) 
       {
-        aBody.innerHTML = '<tr><td colspan="5" class="text-center text-success fw-bold py-3">🎉 目前尚無缺席/遲到紀錄！</td></tr>';
+        aBody.innerHTML = '<tr><td colspan="5" class="text-center text-success fw-bold py-3">🎉 目前尚無缺席、遲到紀錄！</td></tr>';
       } 
       else 
       {
         const studentMap = {};
 
         res.absentList.forEach(a => {
-          
           const key = (a.studentId && a.studentId !== '-') 
             ? a.studentId 
             : `${a.className}_${a.seatNum}_${a.studentName}`;
@@ -162,7 +161,6 @@ function loadAdminSummary()
           }
           else
           {
-            // 若後續資料包含更完整的學生姓名與班座，自動補充覆蓋
             if(!studentMap[key].className && a.className && a.className !== '-') studentMap[key].className = a.className;
             if(!studentMap[key].seatNum && a.seatNum && a.seatNum !== '-') studentMap[key].seatNum = a.seatNum;
             if((!studentMap[key].studentName || studentMap[key].studentName === '未知學生') && a.studentName && a.studentName !== '未知學生') studentMap[key].studentName = a.studentName;
@@ -188,7 +186,6 @@ function loadAdminSummary()
           return seatX - seatY;
         });
 
-        // 儲存整理後的名單供下載 TXT 使用
         currentAdminAbsentList = groupedList;
 
         groupedList.forEach(student => {
@@ -200,32 +197,28 @@ function loadAdminSummary()
           student.records.forEach((r, idx) => {
             const isLast = idx === student.records.length - 1;
             const borderClass = isLast ? '' : 'border-bottom';
-            const statusTextColor = r.status === '缺席' ? 'text-danger' : 'text-warning-emphasis';
+            
             // 判斷是否已註銷
             const isCancelled = (r.cancelUser !== '');
             const statusDisplay = isCancelled ? `${r.status}(註銷)` : r.status;
-            // 已註銷的項目加上淡色與刪除線，且利用 d-print-none 讓列印時自動隱藏！
+            
+            // 已註銷項目加上淡色與刪除線，並利用 d-print-none 讓列印報表時自動隱藏
             const rowPrintClass = isCancelled ? 'd-print-none bg-light text-muted' : '';
             const statusTextColor = isCancelled ? 'text-muted text-decoration-line-through' : (r.status === '缺席' ? 'text-danger' : 'text-warning-emphasis');
 
             periodsHtml += `
-              <div class="py-2 px-1 text-center ${borderClass} flex-fill d-flex align-items-center justify-content-center gap-2">
+              <div class="py-2 px-1 text-center ${borderClass} flex-fill d-flex align-items-center justify-content-center gap-2 ${rowPrintClass}">
                 <span>第 ${r.period} 節</span>
-                <strong class="${statusTextColor}">${r.status}</strong>
+                <strong class="${statusTextColor}">${statusDisplay}</strong>
               </div>`;
 
-            coursesHtml += `
-              <div class="py-2 px-2 text-start ${borderClass} flex-fill d-flex align-items-center">
-                <span> ${r.courseName} <span class="text-muted small">(${r.teacher})</span></span>
-              </div>`;
-            
             coursesHtml += `
               <div class="py-2 px-2 text-start ${borderClass} flex-fill d-flex align-items-center justify-content-between ${rowPrintClass}">
                 <div>
                   <span>${r.courseName} <span class="text-muted small">(${r.teacher})</span></span>
                   ${isCancelled ? `<br><small class="text-secondary">(${r.cancelUser} 註銷)</small>` : ''}
                 </div>
-                <!--  課程名稱右邊新增註銷按鈕 (列印時也隱藏按鈕) -->
+                <!-- 課程名稱右邊的註銷/取消註銷按鈕 (列印時自動隱藏) -->
                 <button class="btn btn-sm ${isCancelled ? 'btn-outline-secondary' : 'btn-outline-danger'} py-0 px-2 ms-2 d-print-none" 
                         onclick="toggleCancelRecord('${r.recordId}')">
                   ${isCancelled ? '取消註銷' : '註銷'}
@@ -258,12 +251,13 @@ function loadAdminSummary()
       showMessage('載入後台失敗: ' + err.message, false);
     });
 }
+
 /**
- * 切換缺曠記錄的註銷狀態
+ * 觸發後端切換註銷狀態
  */
 function toggleCancelRecord(recordId) 
 {
-  if (!confirm('確定要切換此筆缺曠紀錄的註銷狀態嗎？')) return;
+  if (!confirm('確定要切換註銷狀態嗎？')) return;
 
   showMessage('⏳ 正在更新註銷狀態...', true);
 
@@ -272,7 +266,7 @@ function toggleCancelRecord(recordId)
       if (res.success) 
       {
         showMessage(res.message, true);
-        loadAdminSummary(); // 重新整理後台總表
+        loadAdminSummary(); 
       } 
       else 
       {
