@@ -4,11 +4,14 @@
 let currentData = [];       // 存放所有資料（主檔 A 及其整合修改後的內容）
 let originalFileName = '';  // 記錄主檔 A 的原始檔名
 let weekDates = [];         // 存放 7 天的日期結構
-let activeDateStr = '';     // 目前選中的分頁日期 (例如 "115/10/27")
+let availableGrades = [];   // 存放資料中出現的年級（如 ['1', '2', '3']）
+let activeGrade = '';       // 目前選中的年級（如 '1'）
+let activeDateStr = '';     // 目前選中的分頁日期（如 '115/10/27'）
 
 const PERIOD_COUNT = 13;
 const PERIOD_NAMES = ['午休', '早休', '第1節', '第2節', '第3節', '第4節', '第5節', '第6節', '第7節', '第8節', '第9節', '第10節', '第11節'];
 const WEEKDAY_NAMES = ['日', '一', '二', '三', '四', '五', '六'];
+const GRADE_LABELS = { '1': '一年級', '2': '二年級', '3': '三年級' };
 
 // 檢查必填的 4 個欄位（studentCode 為 5 碼班級座號）
 const REQUIRED_FIELDS = [
@@ -21,7 +24,7 @@ const REQUIRED_FIELDS = [
 // DOM 元素快取
 let dropZone, fileInput, selectFileBtn, uploadCard, editorCard;
 let mergeFileBtn, mergeFileInput;
-let dayTabs, tableHead, tableBody, rowCount, tabRowCount, fileNameBadge, addRowBtn, resetBtn, downloadBtn, msgAlert;
+let gradeTabs, dayTabs, tableHead, tableBody, rowCount, tabRowCount, fileNameBadge, addRowBtn, resetBtn, downloadBtn, msgAlert;
 
 // ==========================================
 // 2. 初始化與事件綁定
@@ -39,6 +42,7 @@ function initDOM() {
   editorCard = document.getElementById('editorCard');
   mergeFileBtn = document.getElementById('mergeFileBtn');
   mergeFileInput = document.getElementById('mergeFileInput');
+  gradeTabs = document.getElementById('gradeTabs');
   dayTabs = document.getElementById('dayTabs');
   tableHead = document.getElementById('tableHead');
   tableBody = document.getElementById('tableBody');
@@ -86,7 +90,7 @@ function bindEvents() {
 
   // 第二個 TXT (B) 整合按鈕事件
   mergeFileBtn.addEventListener('click', () => {
-    mergeFileInput.value = ''; // 清空值，允許重複匯入同檔名檔案
+    mergeFileInput.value = '';
     mergeFileInput.click();
   });
 
@@ -94,7 +98,32 @@ function bindEvents() {
     if (e.target.files.length > 0) handleMergeFile(e.target.files[0]);
   });
 
-  // 0. 點擊七天分頁標籤切換日期
+  // 第一層：點擊年級分頁標籤切換年級
+  gradeTabs.addEventListener('click', (e) => {
+    const tabBtn = e.target.closest('.grade-tab-btn');
+    if (!tabBtn) return;
+
+    activeGrade = tabBtn.dataset.grade;
+
+    // 切換年級時，若目前選中的日期在該年級沒有資料，則自動跳到該年級有資料的第一天
+    const hasDataOnCurrentDay = currentData.some(
+      r => getRowGrade(r) === activeGrade && getRowDateStr(r) === activeDateStr
+    );
+    if (!hasDataOnCurrentDay) {
+      const firstDayWithData = weekDates.find(d =>
+        currentData.some(r => getRowGrade(r) === activeGrade && getRowDateStr(r) === d.dateStr)
+      );
+      if (firstDayWithData) {
+        activeDateStr = firstDayWithData.dateStr;
+      }
+    }
+
+    renderGradeTabs();
+    renderDayTabs();
+    renderTable();
+  });
+
+  // 第二層：點擊七天分頁標籤切換日期
   dayTabs.addEventListener('click', (e) => {
     const tabBtn = e.target.closest('.day-tab-btn');
     if (!tabBtn) return;
@@ -104,7 +133,7 @@ function bindEvents() {
     renderTable();
   });
 
-  // 1. 表頭最上方「整欄清除」按鈕：將「目前分頁當天」的指定節次整欄全部設為 0
+  // 1. 表頭最上方「整欄清除」按鈕：僅將「目前年級 + 目前分頁當天」的指定節次設為 0
   tableHead.addEventListener('click', (e) => {
     const clearColBtn = e.target.closest('.clear-col-btn');
     if (!clearColBtn) return;
@@ -114,19 +143,19 @@ function bindEvents() {
 
     let affectedCount = 0;
     currentData.forEach(row => {
-      if (getRowDateStr(row) === activeDateStr) {
+      if (getRowGrade(row) === activeGrade && getRowDateStr(row) === activeDateStr) {
         row.periods[pIdx] = '0';
         affectedCount++;
       }
     });
 
     if (affectedCount === 0) {
-      showAlert('目前分頁沒有可清除的資料', 'warning');
+      showAlert(`${getGradeLabel(activeGrade)}在 ${activeDateStr} 沒有可清除的資料`, 'warning');
       return;
     }
 
     renderTable();
-    showAlert(`已將 ${activeDateStr} 的「${PERIOD_NAMES[pIdx]}」整欄設為 0`, 'info');
+    showAlert(`已將【${getGradeLabel(activeGrade)}】${activeDateStr} 的「${PERIOD_NAMES[pIdx]}」整欄設為 0（共 ${affectedCount} 筆）`, 'info');
   });
 
   // 2. 監聽表格內所有輸入框的即時修改
@@ -135,7 +164,6 @@ function bindEvents() {
     const idx = parseInt(target.dataset.index, 10);
     if (isNaN(idx) || !currentData[idx]) return;
 
-    // 若該列先前被標記為重複錯誤底色，使用者一修改就先移除重複警示樣式
     const parentTr = target.closest('tr');
     if (parentTr && parentTr.classList.contains('table-danger')) {
       parentTr.classList.remove('table-danger');
@@ -149,7 +177,6 @@ function bindEvents() {
       const fieldName = target.dataset.field;
       currentData[idx][fieldName] = target.value;
 
-      // 5碼班級座號必須滿5碼，其餘欄位不可為空，否則顯示紅底
       const valTrim = target.value.trim();
       const isInvalid = fieldName === 'studentCode' ? valTrim.length !== 5 : valTrim === '';
 
@@ -159,8 +186,15 @@ function bindEvents() {
         target.classList.remove('input-empty-error');
       }
 
-      // 若修改了日期，即時更新上方分頁標籤上的筆數統計
-      if (['year', 'month', 'day'].includes(fieldName)) {
+      // 若修改了班級座號首碼（年級）或日期，即時同步更新上方兩層分頁標籤的筆數統計
+      if (fieldName === 'studentCode') {
+        if (valTrim.length >= 1) {
+          currentData[idx].grade = valTrim.substring(0, 1);
+        }
+        updateAvailableGrades();
+        renderGradeTabs();
+        renderDayTabs();
+      } else if (['year', 'month', 'day'].includes(fieldName)) {
         renderDayTabs();
       }
     }
@@ -178,7 +212,7 @@ function bindEvents() {
         target.classList.remove('is-absent');
       }
 
-      // 輸入滿 1 碼自動跳到右邊下一節課輸入框 (0 ~ 11 -> 12)
+      // 輸入滿 1 碼自動跳到右邊下一節課輸入框
       if (val.length === 1 && pIdx < PERIOD_COUNT - 1) {
         const nextInput = tableBody.querySelector(`.period-input[data-index="${idx}"][data-pindex="${pIdx + 1}"]`);
         if (nextInput) {
@@ -205,7 +239,7 @@ function bindEvents() {
       if (!isNaN(idx) && currentData[idx]) {
         currentData[idx].periods = Array(PERIOD_COUNT).fill('0');
         renderTable();
-        showAlert(`已將該筆資料的所有節次重設為 0`, 'info');
+        showAlert('已將該筆資料的所有節次重設為 0', 'info');
       }
       return;
     }
@@ -216,6 +250,8 @@ function bindEvents() {
       const idx = parseInt(deleteRowBtn.dataset.index, 10);
       if (!isNaN(idx) && currentData[idx] && currentData[idx].isNew) {
         currentData.splice(idx, 1);
+        updateAvailableGrades();
+        renderGradeTabs();
         renderDayTabs();
         renderTable();
         showAlert('已刪除該新增列', 'warning');
@@ -229,8 +265,20 @@ function bindEvents() {
 }
 
 // ==========================================
-// 3. 民國日期與星期計算、七天分頁產生邏輯
+// 3. 年級、民國日期與雙層分頁產生邏輯
 // ==========================================
+function getRowGrade(row) {
+  const code = String(row.studentCode || '').trim();
+  if (code.length >= 1 && /^[0-9]$/.test(code[0])) {
+    return code[0];
+  }
+  return String(row.grade || '1');
+}
+
+function getGradeLabel(gradeCode) {
+  return GRADE_LABELS[gradeCode] || `${gradeCode}年級`;
+}
+
 function getRowDateStr(row) {
   const y = String(row.year).trim().padStart(3, '0').slice(-3);
   const m = String(row.month).trim().padStart(2, '0').slice(-2);
@@ -238,12 +286,22 @@ function getRowDateStr(row) {
   return `${y}/${m}/${d}`;
 }
 
-// 根據匯入資料的日期，推算出該週（週一至週日）共 7 天的分頁標籤
+function updateAvailableGrades() {
+  const gradeSet = new Set(['1', '2', '3']);
+  currentData.forEach(row => {
+    const g = getRowGrade(row);
+    if (g) gradeSet.add(g);
+  });
+  availableGrades = Array.from(gradeSet).sort();
+  if (!activeGrade || !availableGrades.includes(activeGrade)) {
+    activeGrade = availableGrades[0] || '1';
+  }
+}
+
 function buildWeekDatesFromData(dataList) {
   let baseDate = new Date();
 
   if (dataList.length > 0) {
-    // 找出資料中最早的日期作為基準，推算所屬那一週的週一～週日
     const sorted = [...dataList].sort((a, b) => getRowDateStr(a).localeCompare(getRowDateStr(b)));
     const first = sorted[0];
     const adYear = parseInt(first.year, 10) + 1911;
@@ -255,7 +313,6 @@ function buildWeekDatesFromData(dataList) {
     }
   }
 
-  // 計算該週的「星期一」
   const dayOfWeek = baseDate.getDay();
   const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
   const monday = new Date(baseDate);
@@ -284,11 +341,34 @@ function buildWeekDatesFromData(dataList) {
   return days;
 }
 
+// 渲染第一層：年級分頁
+function renderGradeTabs() {
+  gradeTabs.innerHTML = '';
+
+  availableGrades.forEach(grade => {
+    const count = currentData.filter(row => getRowGrade(row) === grade).length;
+    const isActive = grade === activeGrade;
+
+    const li = document.createElement('li');
+    li.className = 'nav-item';
+    li.innerHTML = `
+      <button type="button" class="nav-link grade-tab-btn ${isActive ? 'active' : ''}" data-grade="${grade}">
+        ${getGradeLabel(grade)}
+        <span class="badge rounded-pill ${isActive ? 'bg-primary' : 'bg-secondary'} ms-1">${count}</span>
+      </button>
+    `;
+    gradeTabs.appendChild(li);
+  });
+}
+
+// 渲染第二層：七天分頁（統計目前選中 activeGrade 的每日筆數）
 function renderDayTabs() {
   dayTabs.innerHTML = '';
 
   weekDates.forEach(dayObj => {
-    const count = currentData.filter(row => getRowDateStr(row) === dayObj.dateStr).length;
+    const count = currentData.filter(
+      row => getRowGrade(row) === activeGrade && getRowDateStr(row) === dayObj.dateStr
+    ).length;
     const isActive = dayObj.dateStr === activeDateStr;
 
     const li = document.createElement('li');
@@ -304,7 +384,7 @@ function renderDayTabs() {
 }
 
 // ==========================================
-// 4. 字串切割與主檔(A)匯入邏輯 (col2 共 24 碼：班2+座2+年3+月2+日2+節次13)
+// 4. 字串切割與主檔(A)匯入邏輯 (col1 首位為年級, col2 共 24 碼)
 // ==========================================
 function parseLineToRecord(line) {
   const match = line.match(/^(\S+)(\s+)(\S+)$/);
@@ -322,7 +402,8 @@ function parseLineToRecord(line) {
 
   return {
     isNew: false,
-    studentCode: `${grade}${classCode}${seatNo}`, // 合成 5 碼數字 (如 "10129")
+    grade: grade,
+    studentCode: `${grade}${classCode}${seatNo}`, // 5 碼班級座號（如 "10129"）
     academicYear: col1.substring(1, 4),
     semester: col1.substring(4, 5),
     spaces: spaces,
@@ -359,10 +440,20 @@ function handleFile(file) {
       }
     });
 
+    updateAvailableGrades();
     weekDates = buildWeekDatesFromData(currentData);
-    const firstNonEmptyDay = weekDates.find(d => currentData.some(r => getRowDateStr(r) === d.dateStr));
+
+    // 預設選中第一個有資料的年級與日期
+    const firstGradeWithData = availableGrades.find(g => currentData.some(r => getRowGrade(r) === g));
+    if (firstGradeWithData) {
+      activeGrade = firstGradeWithData;
+    }
+    const firstNonEmptyDay = weekDates.find(
+      d => currentData.some(r => getRowGrade(r) === activeGrade && getRowDateStr(r) === d.dateStr)
+    );
     activeDateStr = firstNonEmptyDay ? firstNonEmptyDay.dateStr : weekDates[0].dateStr;
 
+    renderGradeTabs();
     renderDayTabs();
     renderTable();
     uploadCard.classList.add('d-none');
@@ -379,10 +470,6 @@ function handleFile(file) {
 
 // ==========================================
 // 4-2. 第二個 TXT (B) 整合邏輯
-// 規則：
-// 1. 判定標準：5碼班級座號 + 日期 完全相同
-// 2. A已有相同資料：B節次為 '0' 無視；B節次為 '1' 或 '2' 則覆蓋 A 的相對位置
-// 3. A沒有該資料：整行資料貼進 A
 // ==========================================
 function handleMergeFile(file) {
   if (!file.name.toLowerCase().endsWith('.txt') && file.type !== 'text/plain') {
@@ -395,11 +482,10 @@ function handleMergeFile(file) {
     const rawText = event.target.result;
     const lines = rawText.split(/\r?\n/).filter(line => line.trim() !== '');
 
-    let mergedCount = 0;   // 命中既有資料並覆蓋的筆數
-    let appendedCount = 0; // 新增貼入 A 的筆數
+    let mergedCount = 0;
+    let appendedCount = 0;
     let errorCount = 0;
 
-    // 建立主檔 A 的快速查詢索引表：key = "5碼班級座號-YYY/MM/DD"
     const existingMap = new Map();
     currentData.forEach((row, index) => {
       const key = `${String(row.studentCode).trim()}-${getRowDateStr(row)}`;
@@ -416,14 +502,12 @@ function handleMergeFile(file) {
       const keyB = `${String(recordB.studentCode).trim()}-${getRowDateStr(recordB)}`;
 
       if (existingMap.has(keyB)) {
-        // 規則 2：B 裡面有的資料，A 裡面也有 -> 進行彙整
         const targetIdx = existingMap.get(keyB);
         const recordA = currentData[targetIdx];
         let isModified = false;
 
         for (let p = 0; p < PERIOD_COUNT; p++) {
           const valB = recordB.periods[p];
-          // 只要是 0 就無視；出現 1 或 2 則覆蓋 A 相對位置
           if (valB === '1' || valB === '2') {
             if (recordA.periods[p] !== valB) {
               recordA.periods[p] = valB;
@@ -435,7 +519,6 @@ function handleMergeFile(file) {
           mergedCount++;
         }
       } else {
-        // 規則 3：B 裡面的資料在 A 裡面沒有 -> 整行貼進 A
         if (currentData.length > 0) {
           recordB.spaces = currentData[0].spaces;
         }
@@ -445,12 +528,13 @@ function handleMergeFile(file) {
       }
     });
 
-    // 若原本 A 完全沒資料，用 B 的資料建立週日期分頁
+    updateAvailableGrades();
     if (weekDates.length === 0 && currentData.length > 0) {
       weekDates = buildWeekDatesFromData(currentData);
       activeDateStr = weekDates[0].dateStr;
     }
 
+    renderGradeTabs();
     renderDayTabs();
     renderTable();
 
@@ -466,7 +550,7 @@ function handleMergeFile(file) {
 }
 
 // ==========================================
-// 5. 新增一列（自動帶入目前選中分頁的日期）
+// 5. 新增一列（自動帶入目前選中的年級與日期）
 // ==========================================
 function handleAddRow() {
   const ref = currentData.length > 0 ? currentData[0] : null;
@@ -474,7 +558,8 @@ function handleAddRow() {
 
   const newRecord = {
     isNew: true,
-    studentCode: '',                           // 5碼班級座號預設為空
+    grade: activeGrade || '1',
+    studentCode: activeGrade || '', // 預先帶入當前年級首碼（例如 '1'），方便直接接著打班級座號
     academicYear: ref ? ref.academicYear : '115',
     semester: ref ? ref.semester : '1',
     spaces: ref ? ref.spaces : '  ',
@@ -485,6 +570,7 @@ function handleAddRow() {
   };
 
   currentData.push(newRecord);
+  renderGradeTabs();
   renderDayTabs();
   renderTable();
 
@@ -492,24 +578,27 @@ function handleAddRow() {
   const firstInput = tableBody.querySelector(`input[data-index="${newIndex}"][data-field="studentCode"]`);
   if (firstInput) {
     firstInput.focus();
+    // 將游標移到年級首碼後方，方便直接輸入後4碼
+    const len = firstInput.value.length;
+    firstInput.setSelectionRange(len, len);
   }
 }
 
 // ==========================================
-// 6. 渲染目前分頁日期的表格（共 17 欄：#、班級座號、日期、13個節次、操作）
+// 6. 渲染目前「年級 + 日期」的表格
 // ==========================================
 function renderTable() {
   tableBody.innerHTML = '';
 
   const filteredItems = currentData
     .map((row, originalIndex) => ({ row, originalIndex }))
-    .filter(item => getRowDateStr(item.row) === activeDateStr);
+    .filter(item => getRowGrade(item.row) === activeGrade && getRowDateStr(item.row) === activeDateStr);
 
   if (filteredItems.length === 0) {
     tableBody.innerHTML = `
       <tr>
         <td colspan="17" class="text-center text-muted py-5">
-          <strong>${escapeHtml(activeDateStr)}</strong> 目前沒有出缺勤資料，可點擊下方「在本日新增一筆資料」
+          <strong>${escapeHtml(getGradeLabel(activeGrade))}</strong> 在 <strong>${escapeHtml(activeDateStr)}</strong> 目前沒有出缺勤資料，可點擊下方「在本年級本日新增一筆資料」
         </td>
       </tr>`;
   } else {
@@ -543,7 +632,7 @@ function renderTable() {
           <td class="text-primary fw-bold">${displayIdx + 1}</td>
           <td>
             <input type="text" maxlength="5" class="form-control form-control-sm new-input-5 ${errCode}" 
-                   data-index="${index}" data-field="studentCode" value="${escapeHtml(row.studentCode)}" placeholder="班級座號">
+                   data-index="${index}" data-field="studentCode" value="${escapeHtml(row.studentCode)}" placeholder="5碼班座">
           </td>
           <td>
             <div class="date-group">
@@ -593,6 +682,8 @@ function renderTable() {
 function handleReset() {
   currentData = [];
   weekDates = [];
+  availableGrades = [];
+  activeGrade = '';
   activeDateStr = '';
   fileInput.value = '';
   mergeFileInput.value = '';
@@ -601,15 +692,27 @@ function handleReset() {
 }
 
 // ==========================================
-// 7. 檢查全週資料（自動切換分頁定位錯誤）並打包下載新版 TXT
+// 7. 檢查全週資料（自動切換年級與日期分頁定位錯誤）並打包下載新版 TXT
 // ==========================================
 function focusRecordRow(recordIndex, fieldKey = null) {
   const targetRow = currentData[recordIndex];
   if (!targetRow) return;
 
+  const targetGrade = getRowGrade(targetRow);
   const targetDateStr = getRowDateStr(targetRow);
+  let needRerender = false;
+
+  if (availableGrades.includes(targetGrade) && activeGrade !== targetGrade) {
+    activeGrade = targetGrade;
+    needRerender = true;
+  }
   if (weekDates.some(d => d.dateStr === targetDateStr) && activeDateStr !== targetDateStr) {
     activeDateStr = targetDateStr;
+    needRerender = true;
+  }
+
+  if (needRerender) {
+    renderGradeTabs();
     renderDayTabs();
     renderTable();
   }
@@ -651,10 +754,11 @@ function handleDownload() {
       const isInvalid = field.key === 'studentCode' ? val.length !== 5 : val === '';
 
       if (isInvalid) {
+        const gradeLabel = getGradeLabel(getRowGrade(row));
         const dateLabel = getRowDateStr(row);
         const msg = field.key === 'studentCode'
-          ? `日期 ${dateLabel} 中有資料的「班級座號」必須為 5 碼數字！`
-          : `日期 ${dateLabel} 中有資料的「${field.label}」尚未填寫！`;
+          ? `【${gradeLabel}】日期 ${dateLabel} 中有資料的「班級座號」必須為 5 碼數字！`
+          : `【${gradeLabel}】日期 ${dateLabel} 中有資料的「${field.label}」尚未填寫！`;
 
         showAlert(msg, 'danger');
         focusRecordRow(i, field.key);
