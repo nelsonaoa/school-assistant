@@ -221,16 +221,12 @@ function loadAdminSummary()
               </div>`;
           });
 
-          // 💡 為了讓後台管理員也能看到「已被註銷」的紀錄並隨時按「取消」把它們救回來，
-          // 我們可以在下方額外列出該學生「已被註銷」的項目（或是透過一個收合區塊顯示）。
-          // 這裡我們把已註銷的項目以灰階、帶「取消」按鈕的形式接在下方，或者教務人員通常會希望在後台看見：
           const cancelledRecords = student.records.filter(r => r.cancelUser);
           cancelledRecords.forEach(r => {
             periodsHtml += `
               <div class="py-2 px-1 text-center border-top flex-fill d-flex align-items-center justify-content-center gap-2 bg-light text-muted">
                 <span>第 ${r.period} 節</span>
                 <strong class="text-decoration-line-through">${r.status}</strong>
-                <span class="badge bg-secondary">已註銷</span>
               </div>`;
 
             coursesHtml += `
@@ -280,6 +276,7 @@ function loadAdminSummary()
  */
 function toggleCancelRecord(recordId) 
 {
+  showMessage('⏳ 正在更新註銷狀態...', true);
   callGasApi('toggleCancelAttendance', { recordId: recordId })
     .then(res => {
       if (res.success) 
