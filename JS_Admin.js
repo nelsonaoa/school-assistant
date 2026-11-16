@@ -255,11 +255,11 @@ function loadAdminSummary()
 /**
  * 觸發後端切換註銷狀態（僅傳遞 recordId，透過 Toast 提示，極速且安全）
  */
-function toggleCancelRecord(recordId) 
+function toggleCancelRecord(recordId, studentId) 
 {
   showMessage('⏳ 正在更新註銷狀態...', true);
 
-  callGasApi('toggleCancelAttendance', { recordId: recordId })
+  callGasApi('toggleCancelAttendance', { recordId: recordId, studentId: studentId })
     .then(res => {
       if (res.success) 
       {
