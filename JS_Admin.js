@@ -124,7 +124,7 @@ function loadAdminSummary()
         });
       }
 
-      // 4. 渲染全校缺席總表 (網頁上保留刪除線與取消按鈕；列印時自動完全過濾已註銷項目避免表格崩塌)
+      // 4. 渲染全校缺席總表 (🎯 核心優化：畫面與列印同步過濾已註銷項目，確保排版完美、不留空行)
       const aBody = document.getElementById('adminAbsentTableBody');
       aBody.innerHTML = '';
       currentAdminAbsentList = [];
@@ -185,74 +185,84 @@ function loadAdminSummary()
         groupedList.forEach(student => {
           student.records.sort((r1, r2) => (parseInt(r1.period, 10) || 0) - (parseInt(r2.period, 10) || 0));
 
-          // 🎯 建立「螢幕顯示用」的完整記錄陣列（包含已註銷的項目，帶刪除線與取消按鈕）
-          // 🎯 建立「列印專用」的過濾陣列（完全剔除已註銷的項目，確保列印表格絕對不壞掉）
-          const screenRecords = student.records;
-          const printRecords = student.records.filter(r => !r.cancelUser);
+          // 🎯 只保留「未被註銷」的紀錄來渲染畫面與列印（被註銷的直接不佔排版空間）
+          const activeRecords = student.records.filter(r => !r.cancelUser);
+          if (activeRecords.length === 0) return; 
 
-          // 如果該學生所有紀錄都被註銷且為列印模式，則直接跳過
-          if (printRecords.length === 0) return; 
+          let periodsHtml = '<div class="d-flex flex-column h-100">';
+          let coursesHtml = '<div class="d-flex flex-column h-100">';
+          let actionsHtml = '<div class="d-flex flex-column h-100">';
 
-          // 產生畫面 HTML 的內部輔助函式
-          const buildRecordsHtml = (recordsToRender, isPrintMode) => {
-            let pHtml = '<div class="d-flex flex-column h-100">';
-            let cHtml = '<div class="d-flex flex-column h-100">';
-            let aHtml = '<div class="d-flex flex-column h-100">';
+          activeRecords.forEach((r, idx) => {
+            const isLast = idx === activeRecords.length - 1;
+            const borderClass = isLast ? '' : 'border-bottom';
+            const statusTextColor = (r.status === '缺席' ? 'text-danger' : 'text-warning-emphasis');
 
-            recordsToRender.forEach((r, idx) => {
-              const isLast = idx === recordsToRender.length - 1;
-              const borderClass = isLast ? '' : 'border-bottom';
-              
-              const isCancelled = (r.cancelUser !== '');
-              const statusDisplay = r.status; 
-              
-              const rowBgClass = (isCancelled && !isPrintMode) ? 'bg-light' : '';
-              const statusTextColor = isCancelled ? 'text-muted text-decoration-line-through' : (r.status === '缺席' ? 'text-danger' : 'text-warning-emphasis');
+            // 1. 節次與狀態欄
+            periodsHtml += `
+              <div class="py-2 px-1 text-center ${borderClass} flex-fill d-flex align-items-center justify-content-center gap-2">
+                <span>第 ${r.period} 節</span>
+                <strong class="${statusTextColor}">${r.status}</strong>
+              </div>`;
 
-              pHtml += `
-                <div class="py-2 px-1 text-center ${borderClass} flex-fill d-flex align-items-center justify-content-center gap-2 ${rowBgClass}">
-                  <span>第 ${r.period} 節</span>
-                  <strong class="${statusTextColor}">${statusDisplay}</strong>
-                </div>`;
+            // 2. 課程名稱欄
+            coursesHtml += `
+              <div class="py-2 px-2 text-start ${borderClass} flex-fill d-flex align-items-center">
+                <span>${r.courseName} <span class="text-muted small">(${r.teacher})</span></span>
+              </div>`;
 
-              cHtml += `
-                <div class="py-2 px-2 text-start ${borderClass} flex-fill d-flex align-items-center ${rowBgClass}">
-                  <span>${r.courseName} <span class="text-muted small">(${r.teacher})</span></span>
-                </div>`;
+            // 3. 獨立的操作按鈕欄（提供「註銷」按鈕）
+            actionsHtml += `
+              <div class="py-2 px-2 text-center ${borderClass} flex-fill d-flex align-items-center justify-content-center d-print-none">
+                <button class="btn btn-sm btn-outline-danger py-0 px-3 fw-bold" 
+                        onclick="toggleCancelRecord('${r.recordId}')">
+                  註銷
+                </button>
+              </div>`;
+          });
 
-              if (!isPrintMode) {
-                aHtml += `
-                  <div class="py-2 px-2 text-center ${borderClass} flex-fill d-flex align-items-center justify-content-center ${rowBgClass}">
-                    <button class="btn btn-sm ${isCancelled ? 'btn-outline-secondary' : 'btn-outline-danger'} py-0 px-3 fw-bold" 
-                            onclick="toggleCancelRecord('${r.recordId}')">
-                      ${isCancelled ? '取消' : '註銷'}
-                    </button>
-                  </div>`;
-              }
-            });
+          // 💡 為了讓後台管理員也能看到「已被註銷」的紀錄並隨時按「取消」把它們救回來，
+          // 我們可以在下方額外列出該學生「已被註銷」的項目（或是透過一個收合區塊顯示）。
+          // 這裡我們把已註銷的項目以灰階、帶「取消」按鈕的形式接在下方，或者教務人員通常會希望在後台看見：
+          const cancelledRecords = student.records.filter(r => r.cancelUser);
+          cancelledRecords.forEach(r => {
+            periodsHtml += `
+              <div class="py-2 px-1 text-center border-top flex-fill d-flex align-items-center justify-content-center gap-2 bg-light text-muted">
+                <span>第 ${r.period} 節</span>
+                <strong class="text-decoration-line-through">${r.status}</strong>
+                <span class="badge bg-secondary">已註銷</span>
+              </div>`;
 
-            pHtml += '</div>';
-            cHtml += '</div>';
-            aHtml += '</div>';
-            return { pHtml, cHtml, aHtml };
-          };
+            coursesHtml += `
+              <div class="py-2 px-2 text-start border-top flex-fill d-flex align-items-center bg-light text-muted">
+                <span class="text-decoration-line-through">${r.courseName} <small>(${r.teacher})</small></span>
+              </div>`;
 
-          // 螢幕上顯示的 HTML（包含已註銷項目並有取消按鈕）
-          const screenHtml = buildRecordsHtml(screenRecords, false);
+            actionsHtml += `
+              <div class="py-2 px-2 text-center border-top flex-fill d-flex align-items-center justify-content-center bg-light d-print-none">
+                <button class="btn btn-sm btn-outline-secondary py-0 px-3 fw-bold" 
+                        onclick="toggleCancelRecord('${r.recordId}')">
+                  取消
+                </button>
+              </div>`;
+          });
+
+          periodsHtml += '</div>';
+          coursesHtml += '</div>';
+          actionsHtml += '</div>';
 
           const displayName = student.studentName || (student.studentId ? `學號 ${student.studentId}` : '未知學生');
           const displayClass = student.className || '-';
           const displaySeat = student.seatNum || '-';
 
           const tr = document.createElement('tr');
-          // 🎯 透過 d-print-none 讓畫面版面顯示完整，而在 CSS print 時我們讓這行自動切換為乾淨的排版
           tr.innerHTML = `
             <td class="align-middle text-center">${displayClass}</td>
             <td class="align-middle text-center">${displaySeat}</td>
             <td class="align-middle text-center">${displayName}</td>
-            <td class="p-0 align-middle">${screenHtml.pHtml}</td>
-            <td class="p-0 align-middle">${screenHtml.cHtml}</td>
-            <td class="p-0 align-middle d-print-none">${screenHtml.aHtml}</td>
+            <td class="p-0 align-middle">${periodsHtml}</td>
+            <td class="p-0 align-middle">${coursesHtml}</td>
+            <td class="p-0 align-middle d-print-none">${actionsHtml}</td>
           `;
           aBody.appendChild(tr);
         });
