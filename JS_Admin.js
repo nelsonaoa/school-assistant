@@ -15,7 +15,7 @@ function loadAdminSummary()
   const qDate = document.getElementById('adminQueryDate').value;
   if(!qDate) return;
 
-  showMessage('⏳ 正在載入點名概況與缺曠名單...', true);
+  showMessage('⏳ 正在載入點名單...', true);
 
   callGasApi('getAdminSummary', { targetDate: qDate })
     .then(res => {
@@ -124,7 +124,7 @@ function loadAdminSummary()
         });
       }
 
-      // 4. 渲染全校缺席總表 (🎯 核心優化：畫面與列印同步過濾已註銷項目，確保排版完美、不留空行)
+      // 4. 渲染全校缺席總表
       const aBody = document.getElementById('adminAbsentTableBody');
       aBody.innerHTML = '';
       currentAdminAbsentList = [];
@@ -185,60 +185,41 @@ function loadAdminSummary()
         groupedList.forEach(student => {
           student.records.sort((r1, r2) => (parseInt(r1.period, 10) || 0) - (parseInt(r2.period, 10) || 0));
 
-          // 🎯 只保留「未被註銷」的紀錄來渲染畫面與列印（被註銷的直接不佔排版空間）
-          const activeRecords = student.records.filter(r => !r.cancelUser);
-          if (activeRecords.length === 0) return; 
-
           let periodsHtml = '<div class="d-flex flex-column h-100">';
           let coursesHtml = '<div class="d-flex flex-column h-100">';
           let actionsHtml = '<div class="d-flex flex-column h-100">';
 
-          activeRecords.forEach((r, idx) => {
-            const isLast = idx === activeRecords.length - 1;
+          student.records.forEach((r, idx) => {
+            const isLast = idx === student.records.length - 1;
             const borderClass = isLast ? '' : 'border-bottom';
-            const statusTextColor = (r.status === '缺席' ? 'text-danger' : 'text-warning-emphasis');
+            
+            const isCancelled = (r.cancelUser !== '');
+            const statusDisplay = r.status; 
+            
+            // 已註銷項目加上淺灰色背景，並在列印時隱藏 (d-print-none)
+            const rowPrintClass = isCancelled ? 'd-print-none bg-light' : '';
+            const statusTextColor = isCancelled ? 'text-muted text-decoration-line-through' : (r.status === '缺席' ? 'text-danger' : 'text-warning-emphasis');
+            const courseTextClass = isCancelled ? 'text-muted text-decoration-line-through' : '';
 
-            // 1. 節次與狀態欄
+            // 1. 節次與狀態欄 (不帶任何灰色已註銷標籤文字)
             periodsHtml += `
-              <div class="py-2 px-1 text-center ${borderClass} flex-fill d-flex align-items-center justify-content-center gap-2">
+              <div class="py-2 px-1 text-center ${borderClass} flex-fill d-flex align-items-center justify-content-center gap-2 ${rowPrintClass}">
                 <span>第 ${r.period} 節</span>
-                <strong class="${statusTextColor}">${r.status}</strong>
+                <strong class="${statusTextColor}">${statusDisplay}</strong>
               </div>`;
 
             // 2. 課程名稱欄
             coursesHtml += `
-              <div class="py-2 px-2 text-start ${borderClass} flex-fill d-flex align-items-center">
-                <span>${r.courseName} <span class="text-muted small">(${r.teacher})</span></span>
+              <div class="py-2 px-2 text-start ${borderClass} flex-fill d-flex align-items-center ${rowPrintClass}">
+                <span class="${courseTextClass}">${r.courseName} <span class="small">(${r.teacher})</span></span>
               </div>`;
 
-            // 3. 獨立的操作按鈕欄（提供「註銷」按鈕）
+            // 3. 獨立的操作按鈕欄
             actionsHtml += `
-              <div class="py-2 px-2 text-center ${borderClass} flex-fill d-flex align-items-center justify-content-center d-print-none">
-                <button class="btn btn-sm btn-outline-danger py-0 px-3 fw-bold" 
+              <div class="py-2 px-2 text-center ${borderClass} flex-fill d-flex align-items-center justify-content-center d-print-none ${rowPrintClass}">
+                <button class="btn btn-sm ${isCancelled ? 'btn-outline-secondary' : 'btn-outline-danger'} py-0 px-3 fw-bold" 
                         onclick="toggleCancelRecord('${r.recordId}')">
-                  註銷
-                </button>
-              </div>`;
-          });
-
-          const cancelledRecords = student.records.filter(r => r.cancelUser);
-          cancelledRecords.forEach(r => {
-            periodsHtml += `
-              <div class="py-2 px-1 text-center border-top flex-fill d-flex align-items-center justify-content-center gap-2 bg-light text-muted">
-                <span>第 ${r.period} 節</span>
-                <strong class="text-decoration-line-through">${r.status}</strong>
-              </div>`;
-
-            coursesHtml += `
-              <div class="py-2 px-2 text-start border-top flex-fill d-flex align-items-center bg-light text-muted">
-                <span class="text-decoration-line-through">${r.courseName} <small>(${r.teacher})</small></span>
-              </div>`;
-
-            actionsHtml += `
-              <div class="py-2 px-2 text-center border-top flex-fill d-flex align-items-center justify-content-center bg-light d-print-none">
-                <button class="btn btn-sm btn-outline-secondary py-0 px-3 fw-bold" 
-                        onclick="toggleCancelRecord('${r.recordId}')">
-                  取消
+                  ${isCancelled ? '取消' : '註銷'}
                 </button>
               </div>`;
           });
