@@ -98,6 +98,8 @@ function downloadAbsenceTxt()
   let skippedCount = 0;
 
   currentAdminAbsentList.forEach(student => {
+    const activeRecords = student.records.filter(r => !r.cancelUser); // 過濾掉已註銷的紀錄 (cancelUser 有值者不匯出)
+    if (activeRecords.length === 0) return; // 如果該學生的紀錄全部被註銷，則跳過此學生
     // 取出班級數字 (例如 "101" -> 年級 "1", 班級 "01")
     const classDigits = String(student.className || '').replace(/\D/g, '');
     const seatDigits = String(student.seatNum || '').replace(/\D/g, '');
