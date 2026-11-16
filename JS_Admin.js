@@ -259,12 +259,13 @@ function loadAdminSummary()
 function toggleCancelRecord(recordId) 
 {
   showMessage('⏳ 正在更新註銷狀態...', true);
+
   callGasApi('toggleCancelAttendance', { recordId: recordId })
     .then(res => {
       if (res.success) 
       {
         showMessage(res.message, true);
-        loadAdminSummary(); 
+        loadAdminSummary(); // 重新載入畫面
       } 
       else 
       {
