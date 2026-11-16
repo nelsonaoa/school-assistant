@@ -15,7 +15,7 @@ function loadAdminSummary()
   const qDate = document.getElementById('adminQueryDate').value;
   if(!qDate) return;
 
-  showMessage('⏳ 正在載入點名概況與缺曠名單...', true);
+  showMessage('⏳ 正在載入點名單...', true);
 
   callGasApi('getAdminSummary', { targetDate: qDate })
     .then(res => {
@@ -25,7 +25,7 @@ function loadAdminSummary()
         return;
       }
 
-      // 🎯 檢查當前使用者是否為 admin (只有 admin 能看見與操作註銷按鈕)
+      // 🎯 檢查當前使用者權限
       const roleBadge = document.getElementById('roleBadge');
       const currentRole = roleBadge ? roleBadge.innerText.toLowerCase().trim() : '';
       const isAdmin = (currentRole === 'admin');
@@ -129,7 +129,33 @@ function loadAdminSummary()
         });
       }
 
-      // 4. 渲染全校缺席總表 (保留已註銷資料，狀態顯示 "(註銷)"，僅 admin 看得到按鈕)
+      // 4. 動態調整表格標題：若非 admin，隱藏最右側「操作」欄位
+      const absentTableHeadTr = document.querySelector('#adminSubTabAbsent thead tr');
+      if (absentTableHeadTr) 
+      {
+        if (isAdmin) 
+        {
+          absentTableHeadTr.innerHTML = `
+            <th style="width: 8%;">班級</th>
+            <th style="width: 8%;">座號</th>
+            <th style="width: 12%;">學生姓名</th>
+            <th style="width: 27%;">節次與缺勤狀態</th>
+            <th style="width: 33%;">課程名稱</th>
+            <th style="width: 12%;" class="d-print-none">操作</th>
+          `;
+        } 
+        else 
+        {
+          absentTableHeadTr.innerHTML = `
+            <th style="width: 10%;">班級</th>
+            <th style="width: 10%;">座號</th>
+            <th style="width: 15%;">學生姓名</th>
+            <th style="width: 30%;">節次與缺勤狀態</th>
+            <th style="width: 35%;">課程名稱</th>
+          `;
+        }
+      }
+
       const aBody = document.getElementById('adminAbsentTableBody');
       aBody.innerHTML = '';
       currentAdminAbsentList = [];
@@ -137,7 +163,8 @@ function loadAdminSummary()
       
       if(!res.absentList || res.absentList.length === 0) 
       {
-        aBody.innerHTML = '<tr><td colspan="6" class="text-center text-success fw-bold py-3">🎉 目前尚無缺席、遲到紀錄！</td></tr>';
+        const colSpanCount = isAdmin ? 6 : 5;
+        aBody.innerHTML = `<tr><td colspan="${colSpanCount}" class="text-center text-success fw-bold py-3">🎉 目前尚無缺席、遲到紀錄！</td></tr>`;
       } 
       else 
       {
@@ -199,40 +226,37 @@ function loadAdminSummary()
             const borderClass = isLast ? '' : 'border-bottom';
             
             const isCancelled = (r.cancelUser !== '');
-            // 🎯 需求：被註銷的資料在狀態後方加上 "(註銷)"
             const statusDisplay = isCancelled ? `${r.status}(註銷)` : r.status; 
             
             const rowBgClass = isCancelled ? 'bg-light' : '';
+            // 註銷項目的節次與狀態文字全部加上刪除線
+            const textStyleClass = isCancelled ? 'text-muted text-decoration-line-through' : '';
             const statusTextColor = isCancelled ? 'text-muted text-decoration-line-through' : (r.status === '缺席' ? 'text-danger' : 'text-warning-emphasis');
-            const courseTextClass = isCancelled ? 'text-muted text-decoration-line-through' : '';
 
-            // 1. 節次與狀態欄
+            // 1. 節次與狀態欄 (已註銷的節次也套用刪除線)
             periodsHtml += `
               <div class="py-2 px-1 text-center ${borderClass} flex-fill d-flex align-items-center justify-content-center gap-2 ${rowBgClass}">
-                <span>第 ${r.period} 節</span>
+                <span class="${textStyleClass}">第 ${r.period} 節</span>
                 <strong class="${statusTextColor}">${statusDisplay}</strong>
               </div>`;
 
             // 2. 課程名稱欄
             coursesHtml += `
               <div class="py-2 px-2 text-start ${borderClass} flex-fill d-flex align-items-center ${rowBgClass}">
-                <span class="${courseTextClass}">${r.courseName} <span class="small">(${r.teacher})</span></span>
+                <span class="${textStyleClass}">${r.courseName} <span class="small">(${r.teacher})</span></span>
               </div>`;
 
-            // 3. 獨立的操作按鈕欄 ( 僅限 admin 顯示按鈕；superviewer 顯示空白)
-            let actionBtnHtml = '';
-            if (isAdmin) {
-              actionBtnHtml = `
-                <button class="btn btn-sm ${isCancelled ? 'btn-outline-secondary' : 'btn-outline-danger'} py-0 px-3 fw-bold" 
-                        onclick="toggleCancelRecord('${r.recordId}', '${student.studentId}')">
-                  ${isCancelled ? '取消' : '註銷'}
-                </button>`;
+            // 3. 獨立的操作按鈕欄 (僅 admin 渲染)
+            if (isAdmin) 
+            {
+              actionsHtml += `
+                <div class="py-2 px-2 text-center ${borderClass} flex-fill d-flex align-items-center justify-content-center d-print-none ${rowBgClass}">
+                  <button class="btn btn-sm ${isCancelled ? 'btn-outline-secondary' : 'btn-outline-danger'} py-0 px-3 fw-bold" 
+                          onclick="toggleCancelRecord('${r.recordId}', '${student.studentId}')">
+                    ${isCancelled ? '取消' : '註銷'}
+                  </button>
+                </div>`;
             }
-
-            actionsHtml += `
-              <div class="py-2 px-2 text-center ${borderClass} flex-fill d-flex align-items-center justify-content-center d-print-none ${rowBgClass}">
-                ${actionBtnHtml}
-              </div>`;
           });
 
           periodsHtml += '</div>';
@@ -244,14 +268,29 @@ function loadAdminSummary()
           const displaySeat = student.seatNum || '-';
 
           const tr = document.createElement('tr');
-          tr.innerHTML = `
-            <td class="align-middle text-center">${displayClass}</td>
-            <td class="align-middle text-center">${displaySeat}</td>
-            <td class="align-middle text-center">${displayName}</td>
-            <td class="p-0 align-middle">${periodsHtml}</td>
-            <td class="p-0 align-middle">${coursesHtml}</td>
-            <td class="p-0 align-middle d-print-none">${actionsHtml}</td>
-          `;
+          
+          if (isAdmin) 
+          {
+            tr.innerHTML = `
+              <td class="align-middle text-center">${displayClass}</td>
+              <td class="align-middle text-center">${displaySeat}</td>
+              <td class="align-middle text-center">${displayName}</td>
+              <td class="p-0 align-middle">${periodsHtml}</td>
+              <td class="p-0 align-middle">${coursesHtml}</td>
+              <td class="p-0 align-middle d-print-none">${actionsHtml}</td>
+            `;
+          } 
+          else 
+          {
+            tr.innerHTML = `
+              <td class="align-middle text-center">${displayClass}</td>
+              <td class="align-middle text-center">${displaySeat}</td>
+              <td class="align-middle text-center">${displayName}</td>
+              <td class="p-0 align-middle">${periodsHtml}</td>
+              <td class="p-0 align-middle">${coursesHtml}</td>
+            `;
+          }
+
           aBody.appendChild(tr);
         });
       }
