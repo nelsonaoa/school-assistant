@@ -77,17 +77,14 @@ function downloadAbsenceTxt()
   const monthNum = parseInt(dateParts[1], 10);
   const dayNum = parseInt(dateParts[2], 10);
 
-  // 計算民國年 (3碼)
   const rocYear = String(adYear - 1911).padStart(3, '0').slice(-3);
   const monthStr = String(monthNum).padStart(2, '0');
   const dayStr = String(dayNum).padStart(2, '0');
 
-  // 計算學年度與學期 (8月~1月為第1學期，2月~7月為第2學期)
   const academicYearNum = (monthNum >= 8) ? (adYear - 1911) : (adYear - 1912);
   const academicYear = String(academicYearNum).padStart(3, '0').slice(-3);
   const semester = (monthNum >= 8 || monthNum === 1) ? '1' : '2';
 
-  // 狀態對應代碼 (0=出席, 1=遲到, 2=曠課)
   const statusCodeMap = {
     '出席': '0',
     '遲到': '1',
@@ -98,9 +95,10 @@ function downloadAbsenceTxt()
   let skippedCount = 0;
 
   currentAdminAbsentList.forEach(student => {
-    const activeRecords = student.records.filter(r => !r.cancelUser); // 過濾掉已註銷的紀錄 (cancelUser 有值者不匯出)
-    if (activeRecords.length === 0) return; // 如果該學生的紀錄全部被註銷，則跳過此學生
-    // 取出班級數字 (例如 "101" -> 年級 "1", 班級 "01")
+    // 🎯 關鍵：只抓取未被註銷的紀錄來產生 TXT
+    const activeRecords = student.records.filter(r => !r.cancelUser); 
+    if (activeRecords.length === 0) return; // 如果該學生的紀錄全部被註銷，則略過
+
     const classDigits = String(student.className || '').replace(/\D/g, '');
     const seatDigits = String(student.seatNum || '').replace(/\D/g, '');
 
@@ -115,10 +113,10 @@ function downloadAbsenceTxt()
     const seatNo = seatDigits.padStart(2, '0').slice(-2);
 
     // 13個節次預設皆為 '0' (出席)
-    // 索引順序: [0:午休, 1:早休, 2:第1節, 3:第2節, ..., 12:第11節]
     const periods = Array(13).fill('0');
 
-    student.records.forEach(r => {
+    // 🎯 僅針對未註銷的紀錄填入狀態代碼（被註銷的會自動留在 '0'）
+    activeRecords.forEach(r => {
       const pNum = parseInt(r.period, 10);
       const code = statusCodeMap[r.status] || '0';
       if(!isNaN(pNum) && pNum >= 1 && pNum <= 11) 
