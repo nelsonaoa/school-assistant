@@ -15,7 +15,7 @@ function loadAdminSummary()
   const qDate = document.getElementById('adminQueryDate').value;
   if(!qDate) return;
 
-  showMessage('⏳ 正在載入點名單...', true);
+  showMessage('⏳ 正在載入點名概況與缺曠名單...', true);
 
   callGasApi('getAdminSummary', { targetDate: qDate })
     .then(res => {
@@ -124,7 +124,7 @@ function loadAdminSummary()
         });
       }
 
-      // 4. 渲染全校缺席總表
+      // 4. 渲染全校缺席總表 (🎯 修復多餘線條：改用動態 isLast 判斷邊框)
       const aBody = document.getElementById('adminAbsentTableBody');
       aBody.innerHTML = '';
       currentAdminAbsentList = [];
@@ -183,6 +183,7 @@ function loadAdminSummary()
         currentAdminAbsentList = groupedList;
 
         groupedList.forEach(student => {
+          // 依節次從小到大排序 (例如第 3 節在上，第 4 節在下)
           student.records.sort((r1, r2) => (parseInt(r1.period, 10) || 0) - (parseInt(r2.period, 10) || 0));
 
           let periodsHtml = '<div class="d-flex flex-column h-100">';
@@ -190,18 +191,18 @@ function loadAdminSummary()
           let actionsHtml = '<div class="d-flex flex-column h-100">';
 
           student.records.forEach((r, idx) => {
+            // 🎯 關鍵修正：只有當這筆記錄不是當天該學生「最後一筆有效渲染記錄」時，才加上下邊框
             const isLast = idx === student.records.length - 1;
             const borderClass = isLast ? '' : 'border-bottom';
             
             const isCancelled = (r.cancelUser !== '');
             const statusDisplay = r.status; 
             
-            // 已註銷項目加上淺灰色背景，並在列印時隱藏 (d-print-none)
             const rowPrintClass = isCancelled ? 'd-print-none bg-light' : '';
             const statusTextColor = isCancelled ? 'text-muted text-decoration-line-through' : (r.status === '缺席' ? 'text-danger' : 'text-warning-emphasis');
             const courseTextClass = isCancelled ? 'text-muted text-decoration-line-through' : '';
 
-            // 1. 節次與狀態欄 (不帶任何灰色已註銷標籤文字)
+            // 1. 節次與狀態欄
             periodsHtml += `
               <div class="py-2 px-1 text-center ${borderClass} flex-fill d-flex align-items-center justify-content-center gap-2 ${rowPrintClass}">
                 <span>第 ${r.period} 節</span>
@@ -253,7 +254,7 @@ function loadAdminSummary()
 }
 
 /**
- * 觸發後端切換註銷狀態
+ * 觸發後端切換註銷狀態（無彈出視窗確認，直接執行）
  */
 function toggleCancelRecord(recordId) 
 {
