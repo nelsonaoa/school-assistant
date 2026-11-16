@@ -124,7 +124,7 @@ function loadAdminSummary()
         });
       }
 
-      // 4. 渲染全校缺席總表 (單一迴圈、節次正序、無多餘線條與灰色標籤)
+      // 4. 渲染全校缺席總表
       const aBody = document.getElementById('adminAbsentTableBody');
       aBody.innerHTML = '';
       currentAdminAbsentList = [];
@@ -183,7 +183,6 @@ function loadAdminSummary()
         currentAdminAbsentList = groupedList;
 
         groupedList.forEach(student => {
-          // 依節次從小到大排序 (例如第 3 節在前，第 4 節在後)
           student.records.sort((r1, r2) => (parseInt(r1.period, 10) || 0) - (parseInt(r2.period, 10) || 0));
 
           let periodsHtml = '<div class="d-flex flex-column h-100">';
@@ -197,7 +196,6 @@ function loadAdminSummary()
             const isCancelled = (r.cancelUser !== '');
             const statusDisplay = r.status; 
             
-            // 已註銷項目加上淺灰色背景與刪除線，並在列印時隱藏
             const rowPrintClass = isCancelled ? 'd-print-none bg-light' : '';
             const statusTextColor = isCancelled ? 'text-muted text-decoration-line-through' : (r.status === '缺席' ? 'text-danger' : 'text-warning-emphasis');
             const courseTextClass = isCancelled ? 'text-muted text-decoration-line-through' : '';
@@ -215,7 +213,7 @@ function loadAdminSummary()
                 <span class="${courseTextClass}">${r.courseName} <span class="small">(${r.teacher})</span></span>
               </div>`;
 
-            // 3. 獨立的操作按鈕欄 (不跳窗，直接送出 recordId 進行極速切換)
+            // 3. 獨立的操作按鈕欄 (同時帶入 recordId 與 studentId 確保雙重對應不覆蓋)
             actionsHtml += `
               <div class="py-2 px-2 text-center ${borderClass} flex-fill d-flex align-items-center justify-content-center d-print-none ${rowPrintClass}">
                 <button class="btn btn-sm ${isCancelled ? 'btn-outline-secondary' : 'btn-outline-danger'} py-0 px-3 fw-bold" 
@@ -223,6 +221,7 @@ function loadAdminSummary()
                   ${isCancelled ? '取消' : '註銷'}
                 </button>
               </div>`;
+          });
 
           periodsHtml += '</div>';
           coursesHtml += '</div>';
@@ -253,7 +252,7 @@ function loadAdminSummary()
 }
 
 /**
- * 觸發後端切換註銷狀態（僅傳遞 recordId，透過 Toast 提示，極速且安全）
+ * 觸發後端切換註銷狀態（同時傳遞 recordId 與 studentId）
  */
 function toggleCancelRecord(recordId, studentId) 
 {
