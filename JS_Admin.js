@@ -193,6 +193,7 @@ function loadAdminSummary()
 
           let periodsHtml = '<div class="d-flex flex-column h-100">';
           let coursesHtml = '<div class="d-flex flex-column h-100">';
+          let actionsHtml = '<div class="d-flex flex-column h-100">';
 
           student.records.forEach((r, idx) => {
             const isLast = idx === student.records.length - 1;
@@ -228,6 +229,7 @@ function loadAdminSummary()
 
           periodsHtml += '</div>';
           coursesHtml += '</div>';
+          actionsHtml += '</div>';
 
           const displayName = student.studentName || (student.studentId ? `學號 ${student.studentId}` : '未知學生');
           const displayClass = student.className || '-';
@@ -240,6 +242,7 @@ function loadAdminSummary()
             <td class="align-middle text-center">${displayName}</td>
             <td class="p-0 align-middle">${periodsHtml}</td>
             <td class="p-0 align-middle">${coursesHtml}</td>
+            <td class="p-0 align-middle d-print-none">${actionsHtml}</td>
           `;
           aBody.appendChild(tr);
         });
